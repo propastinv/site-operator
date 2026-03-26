@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: site-operator
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: site-operator
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.port }}

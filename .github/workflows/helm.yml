@@ -1,0 +1,57 @@
+name: Publish Helm charts
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "helm/**"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "helm/**"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Helm (latest stable)
+        uses: azure/setup-helm@v4
+        with:
+          version: latest
+
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+          helm registry login ghcr.io \
+            -u "${{ github.actor }}" \
+            --password-stdin
+
+      - name: Package & push Helm charts
+        run: |
+          set -e
+
+          REPO="ghcr.io/${{ github.repository }}/helm"
+
+          for chart in helm/site-operator helm/site-operator-crds; do
+            echo "▶ Processing $chart"
+
+            NAME=$(yq '.name' "$chart/Chart.yaml")
+            VERSION=$(yq '.version' "$chart/Chart.yaml")
+
+            echo "  Chart: $NAME"
+            echo "  Version: $VERSION"
+
+            helm package "$chart" --version "$VERSION"
+
+            helm push "$NAME-$VERSION.tgz" "oci://$REPO"
+
+            rm "$NAME-$VERSION.tgz"
+          done

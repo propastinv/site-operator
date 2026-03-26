@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: site-operator
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: site-operator
+  template:
+    metadata:
+      labels:
+        app: site-operator
+    spec:
+      serviceAccountName: site-operator
+      containers:
+        - name: site-operator
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+      imagePullSecrets:
+        - name: {{ .Values.image.imagePullSecret }}
+

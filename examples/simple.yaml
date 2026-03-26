@@ -1,0 +1,27 @@
+apiVersion: site.epcnetwork.io/v1alpha1
+kind: Site
+metadata:
+  name: test-site
+  namespace: site-operator
+spec:
+  domain: example.com
+  ingress:
+    enabled: true
+    path: /
+    tls: true
+    ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+  database:
+    host: localhost
+    name: testdb
+    passwordSecret:
+      name: db-password
+      key: password
+    userSecret:
+      name: db-user
+      key: username
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClassName: standard

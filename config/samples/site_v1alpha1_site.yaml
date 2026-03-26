@@ -1,0 +1,20 @@
+apiVersion: site.epcnetwork.io/v1alpha1
+kind: Site
+metadata:
+  labels:
+    app.kubernetes.io/name: site-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: site-sample
+spec:
+  domain: site-sample.localhost
+  database:
+    host: mariadb.databases.svc.cluster.local
+    name: wordpress
+    userSecret:
+      name: db-user-secret
+      key: username
+    passwordSecret:
+      name: db-pass-secret
+      key: password
+  ingress:
+    enabled: true

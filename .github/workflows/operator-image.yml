@@ -1,0 +1,60 @@
+name: Build and Push Site Operator
+
+permissions:
+  packages: write
+  contents: read
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+    paths-ignore:
+      - 'helm/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version from git tag
+        id: get_version
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+    
+      - name: Log in to GitHub Container Registry
+        if: env.SKIP != 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if image exists
+        id: check_image
+        run: |
+          if docker manifest inspect ghcr.io/${{ github.repository }}/operator:${{ env.VERSION }} > /dev/null 2>&1; then
+            echo "SKIP=true" >> $GITHUB_ENV
+          else
+            echo "SKIP=false" >> $GITHUB_ENV
+          fi
+
+      - name: Stop if image already exists
+        if: env.SKIP == 'true'
+        run: |
+          echo "Image ghcr.io/${{ github.repository }}/operator:${{ env.VERSION }} already exists. Skipping build."
+
+      - name: Build Docker image
+        if: env.SKIP != 'true'
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/operator:${{ env.VERSION }} .
+
+      - name: Push Docker image
+        if: env.SKIP != 'true'
+        run: |
+          docker push ghcr.io/${{ github.repository }}/operator:${{ env.VERSION }}

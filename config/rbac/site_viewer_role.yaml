@@ -1,0 +1,29 @@
+# This rule is not used by the project site-operator itself.
+# It is provided to allow the cluster admin to help manage permissions for users.
+#
+# Grants read-only access to site.epcnetwork.io resources.
+# This role is intended for users who need visibility into these resources
+# without permissions to modify them. It is ideal for monitoring purposes and limited-access viewing.
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: site-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: site-viewer-role
+rules:
+- apiGroups:
+  - site.epcnetwork.io
+  resources:
+  - sites
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - site.epcnetwork.io
+  resources:
+  - sites/status
+  verbs:
+  - get
