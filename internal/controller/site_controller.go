@@ -36,9 +36,9 @@ type SiteReconciler struct {
 }
 
 // RBAC
-// +kubebuilder:rbac:groups=site.epcnetwork.io,resources=sites,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=site.epcnetwork.io,resources=sites/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=site.epcnetwork.io,resources=sites/finalizers,verbs=update
+// +kubebuilder:rbac:groups=site.propastinv,resources=sites,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=site.propastinv,resources=sites/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=site.propastinv,resources=sites/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services;configmaps;persistentvolumeclaims;secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete

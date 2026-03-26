@@ -44,7 +44,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - site.epcnetwork.io
+  - site.propastinv
   resources:
   - sites
   verbs:
@@ -56,13 +56,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - site.epcnetwork.io
+  - site.propastinv
   resources:
   - sites/finalizers
   verbs:
   - update
 - apiGroups:
-  - site.epcnetwork.io
+  - site.propastinv
   resources:
   - sites/status
   verbs:

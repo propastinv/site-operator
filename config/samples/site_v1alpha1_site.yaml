@@ -1,4 +1,4 @@
-apiVersion: site.epcnetwork.io/v1alpha1
+apiVersion: site.propastinv/v1alpha1
 kind: Site
 metadata:
   labels:

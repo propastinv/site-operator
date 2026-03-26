@@ -1,7 +1,7 @@
 # This rule is not used by the project site-operator itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants read-only access to site.epcnetwork.io resources.
+# Grants read-only access to site.propastinv resources.
 # This role is intended for users who need visibility into these resources
 # without permissions to modify them. It is ideal for monitoring purposes and limited-access viewing.
 
@@ -14,7 +14,7 @@ metadata:
   name: site-viewer-role
 rules:
 - apiGroups:
-  - site.epcnetwork.io
+  - site.propastinv
   resources:
   - sites
   verbs:
@@ -22,7 +22,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - site.epcnetwork.io
+  - site.propastinv
   resources:
   - sites/status
   verbs:

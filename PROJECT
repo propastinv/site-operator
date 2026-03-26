@@ -3,7 +3,7 @@
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
 cliVersion: 4.11.1
-domain: epcnetwork.io
+domain: propastinv
 layout:
 - go.kubebuilder.io/v4
 projectName: site-operator
@@ -13,7 +13,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: epcnetwork.io
+  domain: propastinv
   group: site
   kind: Site
   path: github.com/propastinv/site-operator/api/v1alpha1
