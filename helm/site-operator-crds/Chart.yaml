@@ -2,5 +2,5 @@ apiVersion: v2
 name: site-operator-crds
 description: Helm chart for Site Operator CRDs
 type: application
-version: 0.0.2
+version: 0.0.3
 appVersion: "0.0.1"
