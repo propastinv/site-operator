@@ -100,4 +100,3 @@ func convertLegacySiteToNew(in *legacyv1alpha1.Site) (sitev1alpha1.Site, error) 
 
 	return out, nil
 }
-

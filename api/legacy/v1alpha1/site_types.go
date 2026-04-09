@@ -136,4 +136,3 @@ type SiteList struct {
 func init() {
 	SchemeBuilder.Register(&Site{}, &SiteList{})
 }
-
