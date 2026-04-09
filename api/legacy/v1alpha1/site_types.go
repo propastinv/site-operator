@@ -25,42 +25,27 @@ import (
 
 // SiteSpec defines the desired state of Site
 type SiteSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
-
 	// foo is an example field of Site. Edit site_types.go to remove/update
 	// +optional
 	Foo *string `json:"foo,omitempty"`
 	// +kubebuilder:default=localhost
-	Domain    string         `json:"domain,omitempty"`
+	Domain string `json:"domain,omitempty"`
+
 	Ingress   *IngressSpec   `json:"ingress,omitempty"`
 	Wordpress *WordpressSpec `json:"wordpress,omitempty"`
+
 	// +required
 	Database DatabaseSpec `json:"database"`
+
 	// +optional
 	Persistence *PersistenceSpec `json:"persistence,omitempty"`
+
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 type WordpressSpec struct {
-	Debug   *DebugSpec   `json:"debug,omitempty"`
-	Install *InstallSpec `json:"install,omitempty"`
-}
-
-type InstallSpec struct {
-	// +kubebuilder:default="admin"
-	AdminUser string `json:"adminUser,omitempty"`
-	// +kubebuilder:default="admin@example.com"
-	AdminEmail string `json:"adminEmail,omitempty"`
-	// +optional
-	Title string `json:"title,omitempty"`
-	// +optional
-	AdminPasswordSecret *SecretKeyRef `json:"adminPasswordSecret,omitempty"`
-	// +optional
-	AdminPassword *string `json:"adminPassword,omitempty"`
+	Debug *DebugSpec `json:"debug,omitempty"`
 }
 
 type DebugSpec struct {
@@ -116,21 +101,6 @@ type PersistenceSpec struct {
 
 // SiteStatus defines the observed state of Site.
 type SiteStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// For Kubernetes API conventions, see:
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
-
-	// conditions represent the current state of the Site resource.
-	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
-	//
-	// Standard condition types include:
-	// - "Available": the resource is fully functional
-	// - "Progressing": the resource is being created or updated
-	// - "Degraded": the resource failed to reach or maintain its desired state
-	//
-	// The status of each condition is one of True, False, or Unknown.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -144,15 +114,12 @@ type SiteStatus struct {
 type Site struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// metadata is a standard object metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
-	// spec defines the desired state of Site
 	// +required
 	Spec SiteSpec `json:"spec"`
 
-	// status defines the observed state of Site
 	// +optional
 	Status SiteStatus `json:"status,omitzero"`
 }
@@ -169,3 +136,4 @@ type SiteList struct {
 func init() {
 	SchemeBuilder.Register(&Site{}, &SiteList{})
 }
+

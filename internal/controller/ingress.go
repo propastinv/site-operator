@@ -17,6 +17,7 @@ func reconcileIngress(
 	ctx context.Context,
 	c client.Client,
 	scheme *runtime.Scheme,
+	owner metav1.Object,
 	site sitev1alpha1.Site,
 	labels map[string]string,
 ) error {
@@ -34,7 +35,7 @@ func reconcileIngress(
 			return client.IgnoreNotFound(err)
 		}
 
-		if !metav1.IsControlledBy(ing, &site) {
+		if !metav1.IsControlledBy(ing, owner) {
 			return nil
 		}
 
@@ -93,7 +94,7 @@ func reconcileIngress(
 				ing.Spec.TLS = nil
 			}
 
-			return controllerutil.SetControllerReference(&site, ing, scheme)
+			return controllerutil.SetControllerReference(owner, ing, scheme)
 		})
 		return err
 	})

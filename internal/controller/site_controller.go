@@ -36,9 +36,9 @@ type SiteReconciler struct {
 }
 
 // RBAC
-// +kubebuilder:rbac:groups=site.propastinv,resources=sites,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=site.propastinv,resources=sites/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=site.propastinv,resources=sites/finalizers,verbs=update
+// +kubebuilder:rbac:groups=site.operator,resources=sites,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=site.operator,resources=sites/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=site.operator,resources=sites/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services;configmaps;persistentvolumeclaims;secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
@@ -63,7 +63,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	// Secret (Salts and DB Password)
-	if err := reconcileSecret(ctx, r.Client, r.Scheme, &site); err != nil {
+	if err := reconcileSecret(ctx, r.Client, r.Scheme, &site, &site); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -73,22 +73,22 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	)
 
 	// Deployment
-	if err := reconcileDeployment(ctx, r.Client, r.Scheme, site, labels, envs); err != nil {
+	if err := reconcileDeployment(ctx, r.Client, r.Scheme, &site, site, labels, envs); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// Service
-	if err := reconcileService(ctx, r.Client, r.Scheme, site, labels); err != nil {
+	if err := reconcileService(ctx, r.Client, r.Scheme, &site, site, labels); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// Ingress
-	if err := reconcileIngress(ctx, r.Client, r.Scheme, site, labels); err != nil {
+	if err := reconcileIngress(ctx, r.Client, r.Scheme, &site, site, labels); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// PVC
-	if err := reconcilePVC(ctx, r.Client, r.Scheme, site); err != nil {
+	if err := reconcilePVC(ctx, r.Client, r.Scheme, &site, site); err != nil {
 		return ctrl.Result{}, err
 	}
 

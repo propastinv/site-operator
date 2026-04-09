@@ -1,4 +1,4 @@
-apiVersion: site.propastinv/v1alpha1
+apiVersion: site.operator/v1alpha1
 kind: Site
 metadata:
   name: test-site
@@ -10,17 +10,14 @@ spec:
     path: /
     tls: true
     ingressClassName: nginx
-    annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-prod
+    annotations: {}
   database:
     host: localhost
     name: testdb
+    user: testuser
     passwordSecret:
       name: db-password
       key: password
-    userSecret:
-      name: db-user
-      key: username
   persistence:
     enabled: true
     size: 5Gi

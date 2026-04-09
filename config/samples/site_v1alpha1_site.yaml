@@ -1,4 +1,4 @@
-apiVersion: site.propastinv/v1alpha1
+apiVersion: site.operator/v1alpha1
 kind: Site
 metadata:
   labels:

@@ -26,7 +26,7 @@ func buildWPEnvs(site sitev1alpha1.Site) []corev1.EnvVar {
 		wpDebugDisplay = site.Spec.Wordpress.Debug.Display
 	}
 
-	return []corev1.EnvVar{
+	envs := []corev1.EnvVar{
 		{
 			Name:  "WP_HOME",
 			Value: scheme + "://" + site.Spec.Domain,
@@ -56,6 +56,57 @@ func buildWPEnvs(site sitev1alpha1.Site) []corev1.EnvVar {
 		secretEnv(site, "LOGGED_IN_SALT"),
 		secretEnv(site, "NONCE_SALT"),
 	}
+
+	// Add Installation Envs
+	if site.Spec.Wordpress != nil && site.Spec.Wordpress.Install != nil {
+		install := site.Spec.Wordpress.Install
+		envs = append(envs, corev1.EnvVar{
+			Name:  "WP_INSTALL",
+			Value: "true",
+		})
+		envs = append(envs, corev1.EnvVar{
+			Name:  "WP_ADMIN_USER",
+			Value: install.AdminUser,
+		})
+		envs = append(envs, corev1.EnvVar{
+			Name:  "WP_ADMIN_EMAIL",
+			Value: install.AdminEmail,
+		})
+
+		title := install.Title
+		if title == "" {
+			title = site.Name
+		}
+		envs = append(envs, corev1.EnvVar{
+			Name:  "WP_TITLE",
+			Value: title,
+		})
+
+		// Admin Password
+		if install.AdminPasswordSecret != nil {
+			envs = append(envs, corev1.EnvVar{
+				Name: "WP_ADMIN_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: install.AdminPasswordSecret.Name,
+						},
+						Key: install.AdminPasswordSecret.Key,
+					},
+				},
+			})
+		} else if install.AdminPassword != nil {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "WP_ADMIN_PASSWORD",
+				Value: *install.AdminPassword,
+			})
+		} else {
+			// Default to generated password in our secret
+			envs = append(envs, secretEnv(site, "ADMIN_PASSWORD"))
+		}
+	}
+
+	return envs
 }
 
 func buildDatabaseEnvs(site sitev1alpha1.Site) []corev1.EnvVar {
@@ -68,7 +119,14 @@ func buildDatabaseEnvs(site sitev1alpha1.Site) []corev1.EnvVar {
 			Name:  "DB_NAME",
 			Value: site.Spec.Database.Name,
 		},
-		{
+	}
+
+	// The CRD enforces that exactly one credential method is used for each field.
+	// We handle each field independently to support mixed configurations.
+
+	// User
+	if site.Spec.Database.UserSecret != nil {
+		envs = append(envs, corev1.EnvVar{
 			Name: "DB_USER",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
@@ -78,8 +136,17 @@ func buildDatabaseEnvs(site sitev1alpha1.Site) []corev1.EnvVar {
 					Key: site.Spec.Database.UserSecret.Key,
 				},
 			},
-		},
-		{
+		})
+	} else if site.Spec.Database.User != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "DB_USER",
+			Value: *site.Spec.Database.User,
+		})
+	}
+
+	// Password
+	if site.Spec.Database.PasswordSecret != nil {
+		envs = append(envs, corev1.EnvVar{
 			Name: "DB_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
@@ -89,10 +156,16 @@ func buildDatabaseEnvs(site sitev1alpha1.Site) []corev1.EnvVar {
 					Key: site.Spec.Database.PasswordSecret.Key,
 				},
 			},
-		},
+		})
+	} else if site.Spec.Database.Password != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "DB_PASSWORD",
+			Value: *site.Spec.Database.Password,
+		})
 	}
 
 	return envs
+
 }
 
 func int32Ptr(i int32) *int32 {

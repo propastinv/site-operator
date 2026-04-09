@@ -18,15 +18,16 @@ func reconcilePVC(
 	ctx context.Context,
 	c client.Client,
 	scheme *runtime.Scheme,
+	owner metav1.Object,
 	site sitev1alpha1.Site,
 ) error {
 
 	if site.Spec.Persistence == nil || !site.Spec.Persistence.Enabled {
-		return deleteOwnedPVC(ctx, c, site)
+		return deleteOwnedPVC(ctx, c, owner, site)
 	}
 
 	if site.Spec.Persistence.ExistingClaim != "" {
-		return deleteOwnedPVC(ctx, c, site)
+		return deleteOwnedPVC(ctx, c, owner, site)
 	}
 
 	size := site.Spec.Persistence.Size
@@ -65,7 +66,7 @@ func reconcilePVC(
 				}
 			}
 
-			return controllerutil.SetControllerReference(&site, pvc, scheme)
+			return controllerutil.SetControllerReference(owner, pvc, scheme)
 		})
 		return err
 	})
@@ -74,6 +75,7 @@ func reconcilePVC(
 func deleteOwnedPVC(
 	ctx context.Context,
 	c client.Client,
+	owner metav1.Object,
 	site sitev1alpha1.Site,
 ) error {
 
@@ -88,7 +90,7 @@ func deleteOwnedPVC(
 		return client.IgnoreNotFound(err)
 	}
 
-	if !metav1.IsControlledBy(pvc, &site) {
+	if !metav1.IsControlledBy(pvc, owner) {
 		return nil
 	}
 

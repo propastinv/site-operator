@@ -1,7 +1,7 @@
 # This rule is not used by the project site-operator itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants permissions to create, update, and delete resources within the site.propastinv.
+# Grants permissions to create, update, and delete resources within the site.operator and site.propastinv.
 # This role is intended for users who need to manage these resources
 # but should not control RBAC or manage permissions for others.
 
@@ -14,6 +14,7 @@ metadata:
   name: site-editor-role
 rules:
 - apiGroups:
+  - site.operator
   - site.propastinv
   resources:
   - sites
@@ -26,6 +27,7 @@ rules:
   - update
   - watch
 - apiGroups:
+  - site.operator
   - site.propastinv
   resources:
   - sites/status

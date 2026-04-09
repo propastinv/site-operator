@@ -60,6 +60,9 @@ spec:
                   user:
                     type: string
                   userSecret:
+                    description: |-
+                      Credentials can be provided either via secrets (userSecret/passwordSecret)
+                      or directly as plain strings (user/password). Exactly one method must be used.
                     properties:
                       key:
                         type: string
@@ -74,8 +77,11 @@ spec:
                 - name
                 type: object
                 x-kubernetes-validations:
-                - message: provide either userSecret+passwordSecret or user+password (exactly one method)
-                  rule: (has(self.userSecret) && has(self.passwordSecret) && !has(self.user) && !has(self.password)) || (!has(self.userSecret) && !has(self.passwordSecret) && has(self.user) && has(self.password))
+                - message: provide exactly one of userSecret or user, and exactly
+                    one of passwordSecret or password
+                  rule: ((has(self.userSecret) && !has(self.user)) || (!has(self.userSecret)
+                    && has(self.user))) && ((has(self.passwordSecret) && !has(self.password))
+                    || (!has(self.passwordSecret) && has(self.password)))
               domain:
                 default: localhost
                 type: string
@@ -124,6 +130,29 @@ spec:
                         type: boolean
                       log:
                         type: boolean
+                    type: object
+                  install:
+                    properties:
+                      adminEmail:
+                        default: admin@example.com
+                        type: string
+                      adminPassword:
+                        type: string
+                      adminPasswordSecret:
+                        properties:
+                          key:
+                            type: string
+                          name:
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      adminUser:
+                        default: admin
+                        type: string
+                      title:
+                        type: string
                     type: object
                 type: object
             required:

@@ -16,7 +16,7 @@ import (
 	sitev1alpha1 "github.com/propastinv/site-operator/api/v1alpha1"
 )
 
-func reconcileDeployment(ctx context.Context, c client.Client, scheme *runtime.Scheme, site sitev1alpha1.Site, labels map[string]string, envs []corev1.EnvVar) error {
+func reconcileDeployment(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner metav1.Object, site sitev1alpha1.Site, labels map[string]string, envs []corev1.EnvVar) error {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		nginxConfig := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -60,7 +60,7 @@ server {
 `, fastcgiHTTPS, fastcgiXFP),
 			}
 
-			return controllerutil.SetControllerReference(&site, nginxConfig, scheme)
+			return controllerutil.SetControllerReference(owner, nginxConfig, scheme)
 		})
 		return err
 	})
@@ -79,7 +79,7 @@ server {
 		_, err := controllerutil.CreateOrUpdate(ctx, c, deploy, func() error {
 			deploy.Labels = labels
 			deploy.Spec = buildDeploymentSpec(site, labels, envs)
-			return controllerutil.SetControllerReference(&site, deploy, scheme)
+			return controllerutil.SetControllerReference(owner, deploy, scheme)
 		})
 		return err
 	})
@@ -133,8 +133,16 @@ set -e
 if [ ! -f /var/www/html/index.php ]; then
   echo "Initializing WordPress files..."
   cp -r /usr/src/wordpress/* /var/www/html/
-  chown -R www-data:www-data /var/www/html
 fi
+
+if [ ! -f /var/www/html/wp ]; then
+  echo "Downloading wp-cli..."
+  # Use php to download if curl is not available
+  php -r "copy('https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar', '/var/www/html/wp');"
+  chmod +x /var/www/html/wp
+fi
+
+chown -R www-data:www-data /var/www/html
 `},
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: "site-data", MountPath: "/var/www/html"},
@@ -192,6 +200,42 @@ if ( ! defined( 'ABSPATH' ) ) {
 require_once ABSPATH . 'wp-settings.php';
 define( 'FS_METHOD', 'direct' );
 EOF
+
+if [ "$WP_INSTALL" = "true" ]; then
+  echo "Checking if WordPress is installed..."
+  
+  # Wait for DB
+  echo "Waiting for database connection..."
+  until php -r "
+    \$host = getenv('DB_HOST');
+    \$user = getenv('DB_USER');
+    \$pass = getenv('DB_PASSWORD');
+    \$name = getenv('DB_NAME');
+    \$conn = @new mysqli(\$host, \$user, \$pass, \$name);
+    if (\$conn->connect_error) {
+        fwrite(STDERR, 'Connection error: ' . \$conn->connect_error . PHP_EOL);
+        exit(1);
+    }
+    exit(0);
+  "; do
+    sleep 2
+  done
+  echo "Database connection ready."
+  
+  if ! /var/www/html/wp core is-installed; then
+    echo "Installing WordPress..."
+    /var/www/html/wp core install \
+      --url="$WP_HOME" \
+      --title="$WP_TITLE" \
+      --admin_user="$WP_ADMIN_USER" \
+      --admin_password="$WP_ADMIN_PASSWORD" \
+      --admin_email="$WP_ADMIN_EMAIL" \
+      --skip-email
+    echo "WordPress installed successfully."
+  else
+    echo "WordPress is already installed."
+  fi
+fi
 
 exec php-fpm
 `},

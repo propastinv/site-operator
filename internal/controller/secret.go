@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func reconcileSecret(ctx context.Context, c client.Client, scheme *runtime.Scheme, site *sitev1alpha1.Site) error {
+func reconcileSecret(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner metav1.Object, site *sitev1alpha1.Site) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      site.Name + "-site-secret",
@@ -44,7 +44,17 @@ func reconcileSecret(ctx context.Context, c client.Client, scheme *runtime.Schem
 			}
 		}
 
-		return controllerutil.SetControllerReference(site, secret, scheme)
+		// WordPress Admin Password
+		if site.Spec.Wordpress != nil && site.Spec.Wordpress.Install != nil {
+			install := site.Spec.Wordpress.Install
+			if install.AdminPasswordSecret == nil && install.AdminPassword == nil {
+				if _, ok := secret.Data["ADMIN_PASSWORD"]; !ok {
+					secret.Data["ADMIN_PASSWORD"] = []byte(randomKey())
+				}
+			}
+		}
+
+		return controllerutil.SetControllerReference(owner, secret, scheme)
 	})
 
 	return err

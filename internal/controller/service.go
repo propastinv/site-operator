@@ -14,7 +14,7 @@ import (
 	sitev1alpha1 "github.com/propastinv/site-operator/api/v1alpha1"
 )
 
-func reconcileService(ctx context.Context, c client.Client, scheme *runtime.Scheme, site sitev1alpha1.Site, labels map[string]string) error {
+func reconcileService(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner metav1.Object, site sitev1alpha1.Site, labels map[string]string) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		svc := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -33,7 +33,7 @@ func reconcileService(ctx context.Context, c client.Client, scheme *runtime.Sche
 					TargetPort: intstr.FromInt(80),
 				},
 			}
-			return controllerutil.SetControllerReference(&site, svc, scheme)
+			return controllerutil.SetControllerReference(owner, svc, scheme)
 		})
 		return err
 	})
