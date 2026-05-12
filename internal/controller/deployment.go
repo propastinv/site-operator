@@ -118,7 +118,7 @@ func buildDeploymentSpec(site sitev1alpha1.Site, labels map[string]string, envs 
 						buildPHPFPMContainer(envs),
 						buildNginxContainer(),
 					}
-					if site.Spec.FileBrowser.Enabled {
+					if site.Spec.FileBrowser != nil && site.Spec.FileBrowser.Enabled {
 						containers = append(containers, buildFileBrowserContainer(site))
 					}
 					return containers
