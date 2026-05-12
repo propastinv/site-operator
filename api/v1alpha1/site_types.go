@@ -43,6 +43,17 @@ type SiteSpec struct {
 	Persistence *PersistenceSpec `json:"persistence,omitempty"`
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// +optional
+	FileBrowser *FileBrowserSpec `json:"fileBrowser,omitempty"`
+}
+
+type FileBrowserSpec struct {
+	// +optional
+	// +kubebuilder:default=true
+	Enabled bool `json:"enabled,omitempty"`
+	// +optional
+	// +kubebuilder:default="filebrowser/filebrowser:latest"
+	Image string `json:"image,omitempty"`
 }
 
 type WordpressSpec struct {

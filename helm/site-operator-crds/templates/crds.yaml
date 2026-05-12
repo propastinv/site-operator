@@ -85,6 +85,15 @@ spec:
               domain:
                 default: localhost
                 type: string
+              fileBrowser:
+                properties:
+                  enabled:
+                    default: true
+                    type: boolean
+                  image:
+                    default: filebrowser/filebrowser:latest
+                    type: string
+                type: object
               foo:
                 description: foo is an example field of Site. Edit site_types.go to
                   remove/update

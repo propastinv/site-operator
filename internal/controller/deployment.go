@@ -113,10 +113,16 @@ func buildDeploymentSpec(site sitev1alpha1.Site, labels map[string]string, envs 
 				InitContainers: []corev1.Container{
 					buildWPInitContainer(),
 				},
-				Containers: []corev1.Container{
-					buildPHPFPMContainer(envs),
-					buildNginxContainer(),
-				},
+				Containers: func() []corev1.Container {
+					containers := []corev1.Container{
+						buildPHPFPMContainer(envs),
+						buildNginxContainer(),
+					}
+					if site.Spec.FileBrowser == nil || site.Spec.FileBrowser.Enabled {
+						containers = append(containers, buildFileBrowserContainer(site))
+					}
+					return containers
+				}(),
 			},
 		},
 	}
@@ -274,6 +280,30 @@ func buildNginxContainer() corev1.Container {
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: "site-data", MountPath: "/var/www/html"},
 			{Name: "nginx-config", MountPath: "/etc/nginx/conf.d/default.conf", SubPath: "default.conf"},
+		},
+	}
+}
+
+func buildFileBrowserContainer(site sitev1alpha1.Site) corev1.Container {
+	image := "filebrowser/filebrowser:latest"
+	if site.Spec.FileBrowser != nil && site.Spec.FileBrowser.Image != "" {
+		image = site.Spec.FileBrowser.Image
+	}
+
+	return corev1.Container{
+		Name:  "filebrowser",
+		Image: image,
+		Env: []corev1.EnvVar{
+			{Name: "FB_PORT", Value: "8080"},
+			{Name: "FB_ROOT", Value: "/var/www/html"},
+			{Name: "FB_DATABASE", Value: "/tmp/filebrowser.db"},
+			{Name: "FB_NOAUTH", Value: "true"},
+		},
+		Ports: []corev1.ContainerPort{
+			{ContainerPort: 8080},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "site-data", MountPath: "/var/www/html"},
 		},
 	}
 }
