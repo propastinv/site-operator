@@ -18,3 +18,5 @@ spec:
       key: password
   ingress:
     enabled: true
+  fileBrowser:
+    enabled: true
