@@ -302,6 +302,10 @@ func buildFileBrowserContainer(site sitev1alpha1.Site) corev1.Container {
 		Ports: []corev1.ContainerPort{
 			{ContainerPort: 8080},
 		},
+		SecurityContext: &corev1.SecurityContext{
+			RunAsUser:  int64Ptr(33),
+			RunAsGroup: int64Ptr(33),
+		},
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: "site-data", MountPath: "/var/www/html"},
 		},
