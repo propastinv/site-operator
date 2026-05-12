@@ -109,6 +109,12 @@ func buildDeploymentSpec(site sitev1alpha1.Site, labels map[string]string, envs 
 							},
 						},
 					},
+					{
+						Name: "fb-config",
+						VolumeSource: corev1.VolumeSource{
+							EmptyDir: &corev1.EmptyDirVolumeSource{},
+						},
+					},
 				},
 				InitContainers: []corev1.Container{
 					buildWPInitContainer(),
@@ -297,7 +303,6 @@ func buildFileBrowserContainer(site sitev1alpha1.Site) corev1.Container {
 			{Name: "FB_PORT", Value: "8080"},
 			{Name: "FB_ROOT", Value: "/var/www/html"},
 			{Name: "FB_DATABASE", Value: "/tmp/filebrowser.db"},
-			{Name: "FB_CONFIG", Value: "/tmp/settings.json"},
 			{Name: "FB_NOAUTH", Value: "true"},
 		},
 		Ports: []corev1.ContainerPort{
@@ -309,6 +314,7 @@ func buildFileBrowserContainer(site sitev1alpha1.Site) corev1.Container {
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: "site-data", MountPath: "/var/www/html"},
+			{Name: "fb-config", MountPath: "/config"},
 		},
 	}
 }
