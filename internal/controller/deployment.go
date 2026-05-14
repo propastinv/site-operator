@@ -56,13 +56,6 @@ server {
     %s
     %s
   }
-
-  location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|otf|eot|mp3|mp4|webm|webp|pdf|zip|gz|tar|rar)$ {
-    expires max;
-    log_not_found off;
-    access_log off;
-    try_files $uri =404;
-  }
 }
 `, fastcgiHTTPS, fastcgiXFP),
 			}
