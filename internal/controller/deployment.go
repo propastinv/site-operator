@@ -297,13 +297,23 @@ func buildFileBrowserContainer(site sitev1alpha1.Site) corev1.Container {
 	}
 
 	return corev1.Container{
-		Name:  "filebrowser",
-		Image: image,
+		Name:    "filebrowser",
+		Image:   image,
+		Command: []string{"sh", "-c"},
+		Args: []string{`
+set -e
+if [ ! -f "$FB_DATABASE" ]; then
+  filebrowser config init --database="$FB_DATABASE" --address="$FB_ADDRESS" --port="$FB_PORT" --root="$FB_ROOT" --baseURL="$FB_BASE_URL"
+  filebrowser users add "$FB_USERNAME" "$FB_PASSWORD" --database="$FB_DATABASE" --perm.admin
+fi
+exec filebrowser
+`},
 		Env: []corev1.EnvVar{
 			{Name: "FB_PORT", Value: "8080"},
 			{Name: "FB_ROOT", Value: "/var/www/html"},
 			{Name: "FB_DATABASE", Value: "/tmp/filebrowser.db"},
-			{Name: "FB_BASEURL", Value: "/filebrowser"},
+			{Name: "FB_BASE_URL", Value: "/filebrowser"},
+			{Name: "FB_ADDRESS", Value: "0.0.0.0"},
 			{Name: "FB_USERNAME", Value: "admin"},
 			secretEnv(site, "FB_PASSWORD"),
 		},
