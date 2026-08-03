@@ -303,7 +303,7 @@ func buildFileBrowserContainer(site sitev1alpha1.Site) corev1.Container {
 		Args: []string{`
 set -e
 if [ ! -f "$FB_DATABASE" ]; then
-  filebrowser config init --database="$FB_DATABASE" --address="$FB_ADDRESS" --port="$FB_PORT" --root="$FB_ROOT" --baseURL="$FB_BASE_URL"
+  filebrowser config init --database="$FB_DATABASE" --address="$FB_ADDRESS" --port="$FB_PORT" --root="$FB_ROOT" --baseURL="$FB_BASE_URL" --fileMode=0o644 --dirMode=0o755
   filebrowser users add "$FB_USERNAME" "$FB_PASSWORD" --database="$FB_DATABASE" --perm.admin
 fi
 exec filebrowser
