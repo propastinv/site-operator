@@ -26,13 +26,21 @@ func reconcileService(ctx context.Context, c client.Client, scheme *runtime.Sche
 		_, err := controllerutil.CreateOrUpdate(ctx, c, svc, func() error {
 			svc.Labels = labels
 			svc.Spec.Selector = labels
-			svc.Spec.Ports = []corev1.ServicePort{
+			ports := []corev1.ServicePort{
 				{
 					Name:       "http",
 					Port:       80,
 					TargetPort: intstr.FromInt(80),
 				},
 			}
+			if site.Spec.FileBrowser != nil && site.Spec.FileBrowser.Enabled {
+				ports = append(ports, corev1.ServicePort{
+					Name:       "filebrowser",
+					Port:       8080,
+					TargetPort: intstr.FromInt(8080),
+				})
+			}
+			svc.Spec.Ports = ports
 			return controllerutil.SetControllerReference(owner, svc, scheme)
 		})
 		return err

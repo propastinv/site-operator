@@ -54,6 +54,13 @@ func reconcileSecret(ctx context.Context, c client.Client, scheme *runtime.Schem
 			}
 		}
 
+		// FileBrowser Password
+		if site.Spec.FileBrowser != nil && site.Spec.FileBrowser.Enabled {
+			if _, ok := secret.Data["FB_PASSWORD"]; !ok {
+				secret.Data["FB_PASSWORD"] = []byte(randomKey())
+			}
+		}
+
 		return controllerutil.SetControllerReference(owner, secret, scheme)
 	})
 

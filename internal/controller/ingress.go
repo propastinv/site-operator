@@ -59,25 +59,41 @@ func reconcileIngress(
 				ing.Spec.IngressClassName = &site.Spec.Ingress.IngressClassName
 			}
 
+			paths := []networkingv1.HTTPIngressPath{
+				{
+					Path:     site.Spec.Ingress.Path,
+					PathType: ptrPathType(networkingv1.PathTypePrefix),
+					Backend: networkingv1.IngressBackend{
+						Service: &networkingv1.IngressServiceBackend{
+							Name: site.Name,
+							Port: networkingv1.ServiceBackendPort{
+								Number: 80,
+							},
+						},
+					},
+				},
+			}
+			if site.Spec.FileBrowser != nil && site.Spec.FileBrowser.Enabled {
+				paths = append(paths, networkingv1.HTTPIngressPath{
+					Path:     "/filebrowser",
+					PathType: ptrPathType(networkingv1.PathTypePrefix),
+					Backend: networkingv1.IngressBackend{
+						Service: &networkingv1.IngressServiceBackend{
+							Name: site.Name,
+							Port: networkingv1.ServiceBackendPort{
+								Number: 8080,
+							},
+						},
+					},
+				})
+			}
+
 			ing.Spec.Rules = []networkingv1.IngressRule{
 				{
 					Host: site.Spec.Domain,
 					IngressRuleValue: networkingv1.IngressRuleValue{
 						HTTP: &networkingv1.HTTPIngressRuleValue{
-							Paths: []networkingv1.HTTPIngressPath{
-								{
-									Path:     site.Spec.Ingress.Path,
-									PathType: ptrPathType(networkingv1.PathTypePrefix),
-									Backend: networkingv1.IngressBackend{
-										Service: &networkingv1.IngressServiceBackend{
-											Name: site.Name,
-											Port: networkingv1.ServiceBackendPort{
-												Number: 80,
-											},
-										},
-									},
-								},
-							},
+							Paths: paths,
 						},
 					},
 				},
