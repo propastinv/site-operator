@@ -54,10 +54,10 @@ func reconcileSecret(ctx context.Context, c client.Client, scheme *runtime.Schem
 			}
 		}
 
-		// FileBrowser Password
+		// FileBrowser Password (short: bcrypt caps input at 72 bytes)
 		if site.Spec.FileBrowser != nil && site.Spec.FileBrowser.Enabled {
 			if _, ok := secret.Data["FB_PASSWORD"]; !ok {
-				secret.Data["FB_PASSWORD"] = []byte(randomKey())
+				secret.Data["FB_PASSWORD"] = []byte(randomShortKey())
 			}
 		}
 
@@ -71,6 +71,15 @@ func randomKey() string {
 	b := make([]byte, 64)
 	if _, err := rand.Read(b); err != nil {
 		return "fallback-random-key-if-entropy-fails"
+	}
+	return base64.StdEncoding.EncodeToString(b)
+}
+
+// randomShortKey is used for passwords fed into bcrypt, which caps input at 72 bytes.
+func randomShortKey() string {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		return "fallback-short-key"
 	}
 	return base64.StdEncoding.EncodeToString(b)
 }
