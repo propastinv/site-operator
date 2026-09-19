@@ -1,7 +1,7 @@
 # This rule is not used by the project site-operator itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants read-only access to site.operator and site.propastinv resources.
+# Grants read-only access to site.operator resources.
 # This role is intended for users who need visibility into these resources
 # without permissions to modify them. It is ideal for monitoring purposes and limited-access viewing.
 
@@ -15,7 +15,6 @@ metadata:
 rules:
 - apiGroups:
   - site.operator
-  - site.propastinv
   resources:
   - sites
   verbs:
@@ -24,7 +23,6 @@ rules:
   - watch
 - apiGroups:
   - site.operator
-  - site.propastinv
   resources:
   - sites/status
   verbs:

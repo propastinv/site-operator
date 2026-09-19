@@ -3,7 +3,6 @@
 # It should be run by config/default
 resources:
 - bases/site.operator_sites.yaml
-- bases/site.propastinv_sites.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

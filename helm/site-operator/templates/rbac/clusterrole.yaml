@@ -3,7 +3,7 @@ kind: ClusterRole
 metadata:
   name: site-operator
 rules:
-  - apiGroups: ["site.operator", "site.propastinv"]
+  - apiGroups: ["site.operator"]
     resources: ["sites"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 

@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -52,11 +53,17 @@ type SiteReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.1/pkg/reconcile
-func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, reconcileErr error) {
 	var site sitev1alpha1.Site
 	if err := r.Get(ctx, req.NamespacedName, &site); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
+	defer func() {
+		if statusErr := r.updateSiteStatus(ctx, &site, reconcileErr); statusErr != nil && reconcileErr == nil {
+			reconcileErr = statusErr
+		}
+	}()
 
 	labels := map[string]string{
 		"app": site.Name,
@@ -64,7 +71,8 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	// Secret (Salts and DB Password)
 	if err := reconcileSecret(ctx, r.Client, r.Scheme, &site, &site); err != nil {
-		return ctrl.Result{}, err
+		reconcileErr = err
+		return ctrl.Result{}, reconcileErr
 	}
 
 	envs := append(
@@ -74,25 +82,49 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	// Deployment
 	if err := reconcileDeployment(ctx, r.Client, r.Scheme, &site, site, labels, envs); err != nil {
-		return ctrl.Result{}, err
+		reconcileErr = err
+		return ctrl.Result{}, reconcileErr
 	}
 
 	// Service
 	if err := reconcileService(ctx, r.Client, r.Scheme, &site, site, labels); err != nil {
-		return ctrl.Result{}, err
+		reconcileErr = err
+		return ctrl.Result{}, reconcileErr
 	}
 
 	// Ingress
 	if err := reconcileIngress(ctx, r.Client, r.Scheme, &site, site, labels); err != nil {
-		return ctrl.Result{}, err
+		reconcileErr = err
+		return ctrl.Result{}, reconcileErr
 	}
 
 	// PVC
 	if err := reconcilePVC(ctx, r.Client, r.Scheme, &site, site); err != nil {
-		return ctrl.Result{}, err
+		reconcileErr = err
+		return ctrl.Result{}, reconcileErr
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// updateSiteStatus refreshes the Site's Available/Progressing/Degraded conditions
+// based on the outcome of this reconcile and the state of its owned Deployment.
+// It re-fetches the Site on each conflict retry so it always patches the latest
+// resourceVersion instead of clobbering a concurrent status write.
+func (r *SiteReconciler) updateSiteStatus(ctx context.Context, site *sitev1alpha1.Site, reconcileErr error) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &sitev1alpha1.Site{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(site), current); err != nil {
+			return client.IgnoreNotFound(err)
+		}
+
+		var deploy appsv1.Deployment
+		deployErr := r.Get(ctx, client.ObjectKeyFromObject(current), &deploy)
+
+		setSiteConditions(&current.Status.Conditions, current.Generation, &deploy, deployErr, reconcileErr)
+
+		return r.Status().Update(ctx, current)
+	})
 }
 
 // SetupWithManager sets up the controller with the Manager.

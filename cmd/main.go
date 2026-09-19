@@ -35,7 +35,6 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	legacyv1alpha1 "github.com/propastinv/site-operator/api/legacy/v1alpha1"
 	sitev1alpha1 "github.com/propastinv/site-operator/api/v1alpha1"
 	"github.com/propastinv/site-operator/internal/controller"
 	// +kubebuilder:scaffold:imports
@@ -50,7 +49,6 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(sitev1alpha1.AddToScheme(scheme))
-	utilruntime.Must(legacyv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -188,13 +186,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controller.LegacySiteReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "LegacySite")
-		os.Exit(1)
-	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
