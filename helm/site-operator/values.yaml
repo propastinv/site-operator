@@ -13,14 +13,19 @@ service:
   type: ClusterIP
   port: 80
 
-# Optional: lets Sites omit spec.provision.database.mariadbRef and fall back
-# to a cluster-wide default MariaDB cluster (managed by mariadb-operator,
-# https://github.com/mariadb-operator/mariadb-operator) that the operator
-# provisions Database/User/Grant objects against. Only used when a Site sets
-# spec.provision.database.enabled: true. Leave name empty to require every
-# Site to specify its own mariadbRef.
-provision:
-  database:
-    mariadbRef:
-      name: ""
-      namespace: ""
+# Cluster-wide defaults applied to any Site that doesn't set the equivalent
+# field itself — a Site's own spec always wins over these.
+defaults:
+  # Lets Sites omit spec.provision.database.mariadbRef and fall back to this
+  # MariaDB cluster (managed by mariadb-operator,
+  # https://github.com/mariadb-operator/mariadb-operator) when the operator
+  # provisions Database/User/Grant objects. Only used when a Site sets
+  # spec.provision.database.enabled: true. Leave name empty to require every
+  # Site to specify its own mariadbRef.
+  mariadbRef:
+    name: ""
+    namespace: ""
+  # Lets Sites omit spec.persistence.storageClassName and fall back to this
+  # StorageClass. Leave empty to fall back to the cluster's default
+  # StorageClass instead.
+  storageClassName: ""

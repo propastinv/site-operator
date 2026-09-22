@@ -20,6 +20,7 @@ func reconcilePVC(
 	scheme *runtime.Scheme,
 	owner metav1.Object,
 	site sitev1alpha1.Site,
+	defaultStorageClassName string,
 ) error {
 
 	if site.Spec.Persistence == nil || !site.Spec.Persistence.Enabled {
@@ -33,6 +34,14 @@ func reconcilePVC(
 	size := site.Spec.Persistence.Size
 	if size == "" {
 		size = "1Gi"
+	}
+
+	// The Site's own storageClassName always wins; the operator's default
+	// (--default-storage-class-name, exposed as persistence.storageClassName
+	// in the site-operator Helm chart) is only used when the Site omits it.
+	storageClassName := site.Spec.Persistence.StorageClassName
+	if storageClassName == nil && defaultStorageClassName != "" {
+		storageClassName = &defaultStorageClassName
 	}
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -60,10 +69,8 @@ func reconcilePVC(
 			}
 			pvc.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse(size)
 
-			if pvc.CreationTimestamp.IsZero() {
-				if site.Spec.Persistence.StorageClassName != nil {
-					pvc.Spec.StorageClassName = site.Spec.Persistence.StorageClassName
-				}
+			if pvc.CreationTimestamp.IsZero() && storageClassName != nil {
+				pvc.Spec.StorageClassName = storageClassName
 			}
 
 			return controllerutil.SetControllerReference(owner, pvc, scheme)

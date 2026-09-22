@@ -39,6 +39,11 @@ type SiteReconciler struct {
 	// --default-mariadb-name/--default-mariadb-namespace flags, exposed as
 	// provision.database.mariadbRef in the site-operator Helm chart.
 	DefaultMariaDBRef *sitev1alpha1.MariaDBClusterRef
+	// DefaultStorageClassName, when set, is used for spec.persistence on any
+	// Site that doesn't specify its own storageClassName. Configured via the
+	// --default-storage-class-name flag, exposed as persistence.storageClassName
+	// in the site-operator Helm chart.
+	DefaultStorageClassName string
 }
 
 // RBAC
@@ -111,7 +116,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 	}
 
 	// PVC
-	if err := reconcilePVC(ctx, r.Client, r.Scheme, &site, site); err != nil {
+	if err := reconcilePVC(ctx, r.Client, r.Scheme, &site, site, r.DefaultStorageClassName); err != nil {
 		reconcileErr = err
 		return ctrl.Result{}, reconcileErr
 	}

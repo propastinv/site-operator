@@ -17,10 +17,15 @@ spec:
         - name: site-operator
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if .Values.provision.database.mariadbRef.name }}
+          {{- if or .Values.defaults.mariadbRef.name .Values.defaults.storageClassName }}
           args:
-            - --default-mariadb-name={{ .Values.provision.database.mariadbRef.name }}
-            - --default-mariadb-namespace={{ .Values.provision.database.mariadbRef.namespace }}
+            {{- if .Values.defaults.mariadbRef.name }}
+            - --default-mariadb-name={{ .Values.defaults.mariadbRef.name }}
+            - --default-mariadb-namespace={{ .Values.defaults.mariadbRef.namespace }}
+            {{- end }}
+            {{- if .Values.defaults.storageClassName }}
+            - --default-storage-class-name={{ .Values.defaults.storageClassName }}
+            {{- end }}
           {{- end }}
       {{- with .Values.image.pullSecrets }}
       imagePullSecrets:
