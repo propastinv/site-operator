@@ -121,6 +121,19 @@ func buildDatabaseEnvs(site sitev1alpha1.Site) []corev1.EnvVar {
 		},
 	}
 
+	// When provisioning is enabled, the CRD forbids setting user/userSecret/
+	// password/passwordSecret by hand: the operator owns both, generating the
+	// password into <site>-site-secret and deriving a deterministic username.
+	if provisionEnabled(site) {
+		return append(envs,
+			corev1.EnvVar{
+				Name:  "DB_USER",
+				Value: provisionedUsername(site),
+			},
+			secretEnv(site, "DB_PASSWORD"),
+		)
+	}
+
 	// The CRD enforces that exactly one credential method is used for each field.
 	// We handle each field independently to support mixed configurations.
 

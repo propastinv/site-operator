@@ -43,6 +43,7 @@ type SiteReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services;configmaps;persistentvolumeclaims;secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=k8s.mariadb.com,resources=databases;users;grants,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -71,6 +72,12 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 
 	// Secret (Salts and DB Password)
 	if err := reconcileSecret(ctx, r.Client, r.Scheme, &site, &site); err != nil {
+		reconcileErr = err
+		return ctrl.Result{}, reconcileErr
+	}
+
+	// Database provisioning (optional, via mariadb-operator)
+	if err := reconcileDatabaseProvision(ctx, r.Client, r.Scheme, &site, site); err != nil {
 		reconcileErr = err
 		return ctrl.Result{}, reconcileErr
 	}

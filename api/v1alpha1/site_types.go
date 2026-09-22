@@ -23,6 +23,7 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// +kubebuilder:validation:XValidation:rule="(has(self.provision) && has(self.provision.database) && self.provision.database.enabled) ? (!has(self.database.userSecret) && !has(self.database.user) && !has(self.database.passwordSecret) && !has(self.database.password)) : (((has(self.database.userSecret) && !has(self.database.user)) || (!has(self.database.userSecret) && has(self.database.user))) && ((has(self.database.passwordSecret) && !has(self.database.password)) || (!has(self.database.passwordSecret) && has(self.database.password))))",message="when provision.database.enabled is true, database.user/userSecret/password/passwordSecret must be omitted (credentials are managed automatically); otherwise provide exactly one of userSecret or user, and exactly one of passwordSecret or password"
 // SiteSpec defines the desired state of Site
 type SiteSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -45,6 +46,39 @@ type SiteSpec struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// +optional
 	FileBrowser *FileBrowserSpec `json:"fileBrowser,omitempty"`
+	// +optional
+	Provision *ProvisionSpec `json:"provision,omitempty"`
+}
+
+// ProvisionSpec groups opt-in automation for resources this Site depends on
+// but doesn't manage directly by default (e.g. database credentials).
+type ProvisionSpec struct {
+	// +optional
+	Database *DatabaseProvisionSpec `json:"database,omitempty"`
+}
+
+// DatabaseProvisionSpec, when enabled, makes the operator create a
+// mariadb-operator Database/User/Grant against an existing MariaDB cluster
+// and generate the credentials itself, instead of requiring
+// database.user/userSecret/password/passwordSecret to be set by hand.
+// This is entirely optional: mariadb-operator's CRDs are never required to be
+// installed unless a Site sets provision.database.enabled=true.
+type DatabaseProvisionSpec struct {
+	// +optional
+	// +kubebuilder:default=false
+	Enabled bool `json:"enabled,omitempty"`
+	// MariaDBRef points at an existing mariadb-operator MariaDB cluster.
+	// The operator never provisions the MariaDB cluster itself, only the
+	// Database/User/Grant objects within it.
+	// +required
+	MariaDBRef MariaDBClusterRef `json:"mariadbRef"`
+}
+
+type MariaDBClusterRef struct {
+	// +required
+	Name string `json:"name"`
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 type FileBrowserSpec struct {
@@ -80,7 +114,6 @@ type DebugSpec struct {
 	Display bool `json:"display,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:rule="((has(self.userSecret) && !has(self.user)) || (!has(self.userSecret) && has(self.user))) && ((has(self.passwordSecret) && !has(self.password)) || (!has(self.passwordSecret) && has(self.password)))",message="provide exactly one of userSecret or user, and exactly one of passwordSecret or password"
 type DatabaseSpec struct {
 	// +required
 	Host string `json:"host"`

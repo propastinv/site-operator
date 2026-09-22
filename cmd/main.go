@@ -29,12 +29,14 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	mariadbv1alpha1 "github.com/mariadb-operator/mariadb-operator/api/v1alpha1"
 	sitev1alpha1 "github.com/propastinv/site-operator/api/v1alpha1"
 	"github.com/propastinv/site-operator/internal/controller"
 	// +kubebuilder:scaffold:imports
@@ -49,6 +51,11 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(sitev1alpha1.AddToScheme(scheme))
+	// mariadb-operator's CRDs are optional: their types are registered so the
+	// client can talk to them when a Site opts in via spec.provision.database,
+	// but the manager never watches them (see Client.Cache.DisableFor below),
+	// so their CRDs don't need to be installed unless that feature is used.
+	utilruntime.Must(mariadbv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -155,7 +162,21 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
+		Scheme: scheme,
+		Client: client.Options{
+			Cache: &client.CacheOptions{
+				// Never cache/watch mariadb-operator's types: they're only
+				// touched on-demand for Sites that opt into
+				// spec.provision.database, so a cluster without
+				// mariadb-operator's CRDs installed must not affect any
+				// other Site's reconciliation.
+				DisableFor: []client.Object{
+					&mariadbv1alpha1.Database{},
+					&mariadbv1alpha1.User{},
+					&mariadbv1alpha1.Grant{},
+				},
+			},
+		},
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
