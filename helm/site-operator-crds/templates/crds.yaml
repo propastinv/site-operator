@@ -76,12 +76,6 @@ spec:
                 - host
                 - name
                 type: object
-                x-kubernetes-validations:
-                - message: provide exactly one of userSecret or user, and exactly
-                    one of passwordSecret or password
-                  rule: ((has(self.userSecret) && !has(self.user)) || (!has(self.userSecret)
-                    && has(self.user))) && ((has(self.passwordSecret) && !has(self.password))
-                    || (!has(self.passwordSecret) && has(self.password)))
               domain:
                 default: localhost
                 type: string
@@ -129,6 +123,40 @@ spec:
                   storageClassName:
                     type: string
                 type: object
+              provision:
+                description: |-
+                  ProvisionSpec groups opt-in automation for resources this Site depends on
+                  but doesn't manage directly by default (e.g. database credentials).
+                properties:
+                  database:
+                    description: |-
+                      DatabaseProvisionSpec, when enabled, makes the operator create a
+                      mariadb-operator Database/User/Grant against an existing MariaDB cluster
+                      and generate the credentials itself, instead of requiring
+                      database.user/userSecret/password/passwordSecret to be set by hand.
+                      This is entirely optional: mariadb-operator's CRDs are never required to be
+                      installed unless a Site sets provision.database.enabled=true.
+                    properties:
+                      enabled:
+                        default: false
+                        type: boolean
+                      mariadbRef:
+                        description: |-
+                          MariaDBRef points at an existing mariadb-operator MariaDB cluster.
+                          The operator never provisions the MariaDB cluster itself, only the
+                          Database/User/Grant objects within it.
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        required:
+                        - name
+                        type: object
+                    required:
+                    - mariadbRef
+                    type: object
+                type: object
               wordpress:
                 properties:
                   debug:
@@ -167,6 +195,18 @@ spec:
             required:
             - database
             type: object
+            x-kubernetes-validations:
+            - message: when provision.database.enabled is true, database.user/userSecret/password/passwordSecret
+                must be omitted (credentials are managed automatically); otherwise
+                provide exactly one of userSecret or user, and exactly one of passwordSecret
+                or password
+              rule: '(has(self.provision) && has(self.provision.database) && self.provision.database.enabled)
+                ? (!has(self.database.userSecret) && !has(self.database.user) && !has(self.database.passwordSecret)
+                && !has(self.database.password)) : (((has(self.database.userSecret)
+                && !has(self.database.user)) || (!has(self.database.userSecret) &&
+                has(self.database.user))) && ((has(self.database.passwordSecret) &&
+                !has(self.database.password)) || (!has(self.database.passwordSecret)
+                && has(self.database.password))))'
           status:
             description: status defines the observed state of Site
             properties:
