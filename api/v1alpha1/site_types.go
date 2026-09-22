@@ -48,6 +48,15 @@ type SiteSpec struct {
 	FileBrowser *FileBrowserSpec `json:"fileBrowser,omitempty"`
 	// +optional
 	Provision *ProvisionSpec `json:"provision,omitempty"`
+	// UpdateStrategy controls how the Deployment rolls out new pods.
+	// RollingUpdate (the default) starts the new pod before stopping the old
+	// one, which deadlocks when persistence is enabled with a ReadWriteOnce
+	// volume (the new pod can't mount a PVC that's still attached to the old
+	// one). Use Recreate in that case: it stops the old pod first.
+	// +optional
+	// +kubebuilder:validation:Enum=RollingUpdate;Recreate
+	// +kubebuilder:default=RollingUpdate
+	UpdateStrategy string `json:"updateStrategy,omitempty"`
 }
 
 // ProvisionSpec groups opt-in automation for resources this Site depends on

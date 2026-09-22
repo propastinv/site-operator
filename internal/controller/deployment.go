@@ -88,6 +88,9 @@ server {
 func buildDeploymentSpec(site sitev1alpha1.Site, labels map[string]string, envs []corev1.EnvVar) appsv1.DeploymentSpec {
 	return appsv1.DeploymentSpec{
 		Replicas: int32Ptr(1),
+		Strategy: appsv1.DeploymentStrategy{
+			Type: deploymentStrategyType(site),
+		},
 		Selector: &metav1.LabelSelector{
 			MatchLabels: labels,
 		},
@@ -132,6 +135,16 @@ func buildDeploymentSpec(site sitev1alpha1.Site, labels map[string]string, envs 
 			},
 		},
 	}
+}
+
+// deploymentStrategyType defaults to RollingUpdate (matching the CRD default
+// and prior behavior) when unset, e.g. for Sites built directly in Go rather
+// than read back through the API server's defaulting.
+func deploymentStrategyType(site sitev1alpha1.Site) appsv1.DeploymentStrategyType {
+	if site.Spec.UpdateStrategy == string(appsv1.RecreateDeploymentStrategyType) {
+		return appsv1.RecreateDeploymentStrategyType
+	}
+	return appsv1.RollingUpdateDeploymentStrategyType
 }
 
 func buildWPInitContainer() corev1.Container {

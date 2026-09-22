@@ -159,6 +159,18 @@ spec:
                         type: object
                     type: object
                 type: object
+              updateStrategy:
+                default: RollingUpdate
+                description: |-
+                  UpdateStrategy controls how the Deployment rolls out new pods.
+                  RollingUpdate (the default) starts the new pod before stopping the old
+                  one, which deadlocks when persistence is enabled with a ReadWriteOnce
+                  volume (the new pod can't mount a PVC that's still attached to the old
+                  one). Use Recreate in that case: it stops the old pod first.
+                enum:
+                - RollingUpdate
+                - Recreate
+                type: string
               wordpress:
                 properties:
                   debug:
