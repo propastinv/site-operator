@@ -3,4 +3,4 @@ name: site-operator
 description: Helm chart for Site Operator deployment
 type: application
 version: 0.1.1
-appVersion: "0.1.0"
+appVersion: "0.1.1"
