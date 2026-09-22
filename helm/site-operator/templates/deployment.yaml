@@ -17,6 +17,15 @@ spec:
         - name: site-operator
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.provision.database.mariadbRef.name }}
+          args:
+            - --default-mariadb-name={{ .Values.provision.database.mariadbRef.name }}
+            - --default-mariadb-namespace={{ .Values.provision.database.mariadbRef.namespace }}
+          {{- end }}
+      {{- with .Values.image.pullSecrets }}
       imagePullSecrets:
-        - name: {{ .Values.image.imagePullSecret }}
+        {{- range . }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
 

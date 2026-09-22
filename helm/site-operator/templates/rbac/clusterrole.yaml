@@ -3,21 +3,82 @@ kind: ClusterRole
 metadata:
   name: site-operator
 rules:
-  - apiGroups: ["site.operator"]
-    resources: ["sites"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-
-  - apiGroups: [""]
-    resources: ["pods", "services", "secrets", "configmaps", "persistentvolumeclaims"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-
-  - apiGroups: ["apps"]
-    resources: ["deployments", "statefulsets", "daemonsets"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-
-  - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses/status"]
-    verbs: ["get", "update", "patch"]
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - persistentvolumeclaims
+  - secrets
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - k8s.mariadb.com
+  resources:
+  - databases
+  - grants
+  - users
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - site.operator
+  resources:
+  - sites
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - site.operator
+  resources:
+  - sites/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - site.operator
+  resources:
+  - sites/status
+  verbs:
+  - get
+  - patch
+  - update

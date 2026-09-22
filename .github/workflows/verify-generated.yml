@@ -1,0 +1,37 @@
+name: Verify Generated Files
+
+# CRDs and RBAC in the Helm charts are generated from api/** and the
+# controller's +kubebuilder:rbac markers via `make manifests` (see
+# hack/sync-helm.sh). This has drifted silently more than once when someone
+# forgot to run it before committing, so CI enforces it here instead of
+# relying on remembering to run it by hand.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  verify:
+    name: make manifests has no diff
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run make manifests
+        run: make manifests
+
+      - name: Fail if manifests/Helm charts are out of date
+        run: |
+          if ! git diff --exit-code -- config/ helm/; then
+            echo "::error::config/ or helm/ is out of date. Run 'make manifests' locally and commit the result."
+            exit 1
+          fi

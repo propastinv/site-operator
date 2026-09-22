@@ -69,8 +69,14 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var tlsOpts []func(*tls.Config)
+	var defaultMariaDBName, defaultMariaDBNamespace string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
+	flag.StringVar(&defaultMariaDBName, "default-mariadb-name", "",
+		"Name of a mariadb-operator MariaDB cluster used for spec.provision.database on Sites "+
+			"that don't set their own mariadbRef. Leave empty to require every Site to set its own.")
+	flag.StringVar(&defaultMariaDBNamespace, "default-mariadb-namespace", "",
+		"Namespace of the default MariaDB cluster set via --default-mariadb-name.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
@@ -199,9 +205,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	var defaultMariaDBRef *sitev1alpha1.MariaDBClusterRef
+	if defaultMariaDBName != "" {
+		defaultMariaDBRef = &sitev1alpha1.MariaDBClusterRef{
+			Name:      defaultMariaDBName,
+			Namespace: defaultMariaDBNamespace,
+		}
+	}
+
 	if err := (&controller.SiteReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		DefaultMariaDBRef: defaultMariaDBRef,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Site")
 		os.Exit(1)

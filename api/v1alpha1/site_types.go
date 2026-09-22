@@ -70,8 +70,12 @@ type DatabaseProvisionSpec struct {
 	// MariaDBRef points at an existing mariadb-operator MariaDB cluster.
 	// The operator never provisions the MariaDB cluster itself, only the
 	// Database/User/Grant objects within it.
-	// +required
-	MariaDBRef MariaDBClusterRef `json:"mariadbRef"`
+	// If omitted, the operator's own default cluster is used instead (set via
+	// the --default-mariadb-name/--default-mariadb-namespace flags, exposed as
+	// provision.database.mariadbRef in the site-operator Helm chart). It is an
+	// error to omit this field when no operator-level default is configured.
+	// +optional
+	MariaDBRef *MariaDBClusterRef `json:"mariadbRef,omitempty"`
 }
 
 type MariaDBClusterRef struct {

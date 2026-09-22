@@ -4,7 +4,23 @@ image:
   repository: ghcr.io/propastinv/site-operator/operator
   tag: "0.0.26"
   pullPolicy: IfNotPresent
+  # Optional: names of existing imagePullSecrets, e.g. for a private registry.
+  # pullSecrets:
+  #   - my-registry-secret
+  pullSecrets: []
 
 service:
   type: ClusterIP
   port: 80
+
+# Optional: lets Sites omit spec.provision.database.mariadbRef and fall back
+# to a cluster-wide default MariaDB cluster (managed by mariadb-operator,
+# https://github.com/mariadb-operator/mariadb-operator) that the operator
+# provisions Database/User/Grant objects against. Only used when a Site sets
+# spec.provision.database.enabled: true. Leave name empty to require every
+# Site to specify its own mariadbRef.
+provision:
+  database:
+    mariadbRef:
+      name: ""
+      namespace: ""

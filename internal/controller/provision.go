@@ -35,16 +35,37 @@ func provisionedUsername(site sitev1alpha1.Site) string {
 	return "site_" + name
 }
 
+// resolveMariaDBRef returns the MariaDB cluster a Site's provisioning should
+// target: the Site's own mariadbRef if it set one, otherwise the operator's
+// default (configured via --default-mariadb-name/--default-mariadb-namespace,
+// exposed as provision.database.mariadbRef in the Helm chart). It returns an
+// error if neither is set, since mariadb-operator needs to know which cluster
+// to talk to.
+func resolveMariaDBRef(site sitev1alpha1.Site, defaultRef *sitev1alpha1.MariaDBClusterRef) (sitev1alpha1.MariaDBClusterRef, error) {
+	if ref := site.Spec.Provision.Database.MariaDBRef; ref != nil && ref.Name != "" {
+		return *ref, nil
+	}
+	if defaultRef != nil && defaultRef.Name != "" {
+		return *defaultRef, nil
+	}
+	return sitev1alpha1.MariaDBClusterRef{}, fmt.Errorf(
+		"provision.database.enabled is true but no mariadbRef is set on the Site and no default MariaDB cluster is configured on the operator")
+}
+
 // reconcileDatabaseProvision creates the mariadb-operator Database/User/Grant
 // objects needed to provision credentials for an existing MariaDB cluster
-// referenced by spec.provision.database.mariadbRef. It is a no-op unless the
-// Site explicitly opts in, so this integration stays fully optional.
-func reconcileDatabaseProvision(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner metav1.Object, site sitev1alpha1.Site) error {
+// referenced by spec.provision.database.mariadbRef (or the operator's default
+// cluster, see resolveMariaDBRef). It is a no-op unless the Site explicitly
+// opts in, so this integration stays fully optional.
+func reconcileDatabaseProvision(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner metav1.Object, site sitev1alpha1.Site, defaultRef *sitev1alpha1.MariaDBClusterRef) error {
 	if !provisionEnabled(site) {
 		return nil
 	}
 
-	ref := site.Spec.Provision.Database.MariaDBRef
+	ref, err := resolveMariaDBRef(site, defaultRef)
+	if err != nil {
+		return err
+	}
 	mariaDBRef := mariadbv1alpha1.MariaDBRef{
 		ObjectReference: mariadbv1alpha1.ObjectReference{
 			Name:      ref.Name,

@@ -34,6 +34,11 @@ import (
 type SiteReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	// DefaultMariaDBRef, when set, is used for spec.provision.database on any
+	// Site that doesn't specify its own mariadbRef. Configured via the
+	// --default-mariadb-name/--default-mariadb-namespace flags, exposed as
+	// provision.database.mariadbRef in the site-operator Helm chart.
+	DefaultMariaDBRef *sitev1alpha1.MariaDBClusterRef
 }
 
 // RBAC
@@ -77,7 +82,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 	}
 
 	// Database provisioning (optional, via mariadb-operator)
-	if err := reconcileDatabaseProvision(ctx, r.Client, r.Scheme, &site, site); err != nil {
+	if err := reconcileDatabaseProvision(ctx, r.Client, r.Scheme, &site, site, r.DefaultMariaDBRef); err != nil {
 		reconcileErr = err
 		return ctrl.Result{}, reconcileErr
 	}
