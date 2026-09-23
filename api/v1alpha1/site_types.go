@@ -57,6 +57,19 @@ type SiteSpec struct {
 	// +kubebuilder:validation:Enum=RollingUpdate;Recreate
 	// +kubebuilder:default=RollingUpdate
 	UpdateStrategy string `json:"updateStrategy,omitempty"`
+	// +optional
+	Nginx *NginxSpec `json:"nginx,omitempty"`
+}
+
+// NginxSpec lets a Site pass raw nginx directives into the generated config,
+// e.g. to raise client_max_body_size for large WordPress media/plugin
+// uploads (nginx defaults to 1m, which is why uploads fail with 413).
+type NginxSpec struct {
+	// Config is injected verbatim into the nginx server{} block, after
+	// `index` and before the `location /` block. Directives valid in nginx's
+	// server context only (e.g. client_max_body_size, proxy/fastcgi timeouts).
+	// +optional
+	Config string `json:"config,omitempty"`
 }
 
 // ProvisionSpec groups opt-in automation for resources this Site depends on

@@ -107,6 +107,19 @@ spec:
                   tls:
                     type: boolean
                 type: object
+              nginx:
+                description: |-
+                  NginxSpec lets a Site pass raw nginx directives into the generated config,
+                  e.g. to raise client_max_body_size for large WordPress media/plugin
+                  uploads (nginx defaults to 1m, which is why uploads fail with 413).
+                properties:
+                  config:
+                    description: |-
+                      Config is injected verbatim into the nginx server{} block, after
+                      `index` and before the `location /` block. Directives valid in nginx's
+                      server context only (e.g. client_max_body_size, proxy/fastcgi timeouts).
+                    type: string
+                type: object
               nodeSelector:
                 additionalProperties:
                   type: string

@@ -35,6 +35,11 @@ func reconcileDeployment(ctx context.Context, c client.Client, scheme *runtime.S
 				fastcgiXFP = "fastcgi_param HTTP_X_FORWARDED_PROTO $scheme;"
 			}
 
+			extraConfig := ""
+			if site.Spec.Nginx != nil {
+				extraConfig = site.Spec.Nginx.Config
+			}
+
 			nginxConfig.Data = map[string]string{
 				"default.conf": fmt.Sprintf(`
 server {
@@ -43,6 +48,8 @@ server {
 
   root /var/www/html;
   index index.php index.html;
+
+  %s
 
   location / {
     try_files $uri $uri/ /index.php?$args;
@@ -57,7 +64,7 @@ server {
     %s
   }
 }
-`, fastcgiHTTPS, fastcgiXFP),
+`, extraConfig, fastcgiHTTPS, fastcgiXFP),
 			}
 
 			return controllerutil.SetControllerReference(owner, nginxConfig, scheme)
