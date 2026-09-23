@@ -59,6 +59,22 @@ type SiteSpec struct {
 	UpdateStrategy string `json:"updateStrategy,omitempty"`
 	// +optional
 	Nginx *NginxSpec `json:"nginx,omitempty"`
+	// +optional
+	Php *PhpSpec `json:"php,omitempty"`
+}
+
+// PhpSpec lets a Site pass raw php.ini directives to php-fpm, e.g. to raise
+// post_max_size/upload_max_filesize for large WordPress media/plugin
+// uploads. Raising nginx's client_max_body_size (see NginxSpec) alone isn't
+// enough: PHP enforces its own, independent post_max_size (default 8M) and
+// upload_max_filesize (default 2M) limits.
+type PhpSpec struct {
+	// Config is written verbatim to a php.ini file loaded after all of the
+	// image's defaults (so it can override them), e.g.:
+	//   post_max_size = 64M
+	//   upload_max_filesize = 64M
+	// +optional
+	Config string `json:"config,omitempty"`
 }
 
 // NginxSpec lets a Site pass raw nginx directives into the generated config,

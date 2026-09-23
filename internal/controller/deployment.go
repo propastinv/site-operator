@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -16,7 +18,15 @@ import (
 	sitev1alpha1 "github.com/propastinv/site-operator/api/v1alpha1"
 )
 
+// phpIniFileName is the name under which the generated php.ini overrides are
+// stored both in the ConfigMap and mounted in php-fpm's conf.d. The "zz-"
+// prefix makes it sort after the image's own conf.d/*.ini files, so ours win.
+const phpIniFileName = "zz-site-operator.ini"
+
 func reconcileDeployment(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner metav1.Object, site sitev1alpha1.Site, labels map[string]string, envs []corev1.EnvVar) error {
+	nginxContent := buildNginxConfigContent(site)
+	phpIniContent := buildPHPIniContent(site)
+
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		nginxConfig := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -26,22 +36,74 @@ func reconcileDeployment(ctx context.Context, c client.Client, scheme *runtime.S
 		}
 
 		_, err := controllerutil.CreateOrUpdate(ctx, c, nginxConfig, func() error {
-			tlsEnabled := site.Spec.Ingress != nil && boolPtrVal(site.Spec.Ingress.TLS)
-
-			fastcgiHTTPS := ""
-			fastcgiXFP := ""
-			if tlsEnabled {
-				fastcgiHTTPS = "fastcgi_param HTTPS on;"
-				fastcgiXFP = "fastcgi_param HTTP_X_FORWARDED_PROTO $scheme;"
-			}
-
-			extraConfig := ""
-			if site.Spec.Nginx != nil {
-				extraConfig = site.Spec.Nginx.Config
-			}
-
 			nginxConfig.Data = map[string]string{
-				"default.conf": fmt.Sprintf(`
+				"default.conf": nginxContent,
+			}
+			return controllerutil.SetControllerReference(owner, nginxConfig, scheme)
+		})
+		return err
+	})
+	if err != nil {
+		return err
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		phpConfig := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      site.Name + "-php",
+				Namespace: site.Namespace,
+			},
+		}
+
+		_, err := controllerutil.CreateOrUpdate(ctx, c, phpConfig, func() error {
+			phpConfig.Data = map[string]string{
+				phpIniFileName: phpIniContent,
+			}
+			return controllerutil.SetControllerReference(owner, phpConfig, scheme)
+		})
+		return err
+	})
+	if err != nil {
+		return err
+	}
+
+	configHash := configChecksum(nginxContent, phpIniContent)
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		deploy := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      site.Name,
+				Namespace: site.Namespace,
+			},
+		}
+
+		_, err := controllerutil.CreateOrUpdate(ctx, c, deploy, func() error {
+			deploy.Labels = labels
+			deploy.Spec = buildDeploymentSpec(site, labels, envs, configHash)
+			return controllerutil.SetControllerReference(owner, deploy, scheme)
+		})
+		return err
+	})
+}
+
+// buildNginxConfigContent renders the nginx server{} block, including any
+// raw directives from spec.nginx.config.
+func buildNginxConfigContent(site sitev1alpha1.Site) string {
+	tlsEnabled := site.Spec.Ingress != nil && boolPtrVal(site.Spec.Ingress.TLS)
+
+	fastcgiHTTPS := ""
+	fastcgiXFP := ""
+	if tlsEnabled {
+		fastcgiHTTPS = "fastcgi_param HTTPS on;"
+		fastcgiXFP = "fastcgi_param HTTP_X_FORWARDED_PROTO $scheme;"
+	}
+
+	extraConfig := ""
+	if site.Spec.Nginx != nil {
+		extraConfig = site.Spec.Nginx.Config
+	}
+
+	return fmt.Sprintf(`
 server {
   listen 80;
   server_name _;
@@ -64,35 +126,33 @@ server {
     %s
   }
 }
-`, extraConfig, fastcgiHTTPS, fastcgiXFP),
-			}
-
-			return controllerutil.SetControllerReference(owner, nginxConfig, scheme)
-		})
-		return err
-	})
-	if err != nil {
-		return err
-	}
-
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		deploy := &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      site.Name,
-				Namespace: site.Namespace,
-			},
-		}
-
-		_, err := controllerutil.CreateOrUpdate(ctx, c, deploy, func() error {
-			deploy.Labels = labels
-			deploy.Spec = buildDeploymentSpec(site, labels, envs)
-			return controllerutil.SetControllerReference(owner, deploy, scheme)
-		})
-		return err
-	})
+`, extraConfig, fastcgiHTTPS, fastcgiXFP)
 }
 
-func buildDeploymentSpec(site sitev1alpha1.Site, labels map[string]string, envs []corev1.EnvVar) appsv1.DeploymentSpec {
+// buildPHPIniContent renders the php.ini overrides from spec.php.config.
+func buildPHPIniContent(site sitev1alpha1.Site) string {
+	if site.Spec.Php == nil {
+		return ""
+	}
+	return site.Spec.Php.Config
+}
+
+// configChecksum hashes the rendered config file contents so it can be set
+// as a pod template annotation: changing only a mounted ConfigMap doesn't
+// change the Deployment's pod template, so kubelet/nginx/php-fpm never see
+// the update until something forces a new pod. Annotating the pod template
+// with this hash makes an actual config change produce a new pod template
+// too, triggering a real rollout.
+func configChecksum(contents ...string) string {
+	h := sha256.New()
+	for _, c := range contents {
+		h.Write([]byte(c))
+		h.Write([]byte{0})
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func buildDeploymentSpec(site sitev1alpha1.Site, labels map[string]string, envs []corev1.EnvVar, configHash string) appsv1.DeploymentSpec {
 	return appsv1.DeploymentSpec{
 		Replicas: int32Ptr(1),
 		Strategy: appsv1.DeploymentStrategy{
@@ -104,6 +164,9 @@ func buildDeploymentSpec(site sitev1alpha1.Site, labels map[string]string, envs 
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: labels,
+				Annotations: map[string]string{
+					"site-operator.propastinv/config-hash": configHash,
+				},
 			},
 			Spec: corev1.PodSpec{
 				NodeSelector: site.Spec.NodeSelector,
@@ -115,6 +178,16 @@ func buildDeploymentSpec(site sitev1alpha1.Site, labels map[string]string, envs 
 							ConfigMap: &corev1.ConfigMapVolumeSource{
 								LocalObjectReference: corev1.LocalObjectReference{
 									Name: site.Name + "-nginx",
+								},
+							},
+						},
+					},
+					{
+						Name: "php-config",
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: site.Name + "-php",
 								},
 							},
 						},
@@ -292,6 +365,11 @@ exec php-fpm
 
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: "site-data", MountPath: "/var/www/html"},
+			{
+				Name:      "php-config",
+				MountPath: "/usr/local/etc/php/conf.d/" + phpIniFileName,
+				SubPath:   phpIniFileName,
+			},
 		},
 	}
 }

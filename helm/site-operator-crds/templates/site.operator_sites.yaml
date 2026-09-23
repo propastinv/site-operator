@@ -136,6 +136,22 @@ spec:
                   storageClassName:
                     type: string
                 type: object
+              php:
+                description: |-
+                  PhpSpec lets a Site pass raw php.ini directives to php-fpm, e.g. to raise
+                  post_max_size/upload_max_filesize for large WordPress media/plugin
+                  uploads. Raising nginx's client_max_body_size (see NginxSpec) alone isn't
+                  enough: PHP enforces its own, independent post_max_size (default 8M) and
+                  upload_max_filesize (default 2M) limits.
+                properties:
+                  config:
+                    description: |-
+                      Config is written verbatim to a php.ini file loaded after all of the
+                      image's defaults (so it can override them), e.g.:
+                        post_max_size = 64M
+                        upload_max_filesize = 64M
+                    type: string
+                type: object
               provision:
                 description: |-
                   ProvisionSpec groups opt-in automation for resources this Site depends on
