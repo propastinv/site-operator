@@ -106,7 +106,7 @@ func reconcileDatabaseProvision(ctx context.Context, c client.Client, scheme *ru
 				LocalObjectReference: mariadbv1alpha1.LocalObjectReference{
 					Name: site.Name + "-site-secret",
 				},
-				Key: "DB_PASSWORD",
+				Key: dbPasswordKey,
 			}
 			return controllerutil.SetControllerReference(owner, user, scheme)
 		})

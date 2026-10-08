@@ -40,8 +40,8 @@ func reconcileSecret(ctx context.Context, c client.Client, scheme *runtime.Schem
 		// Database Password (only when provision.database.enabled generates
 		// and owns the credentials; otherwise the user supplies them)
 		if provisionEnabled(*site) {
-			if _, ok := secret.Data["DB_PASSWORD"]; !ok {
-				secret.Data["DB_PASSWORD"] = []byte(randomKey())
+			if _, ok := secret.Data[dbPasswordKey]; !ok {
+				secret.Data[dbPasswordKey] = []byte(randomKey())
 			}
 		}
 

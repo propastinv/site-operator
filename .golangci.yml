@@ -30,6 +30,9 @@ linters:
     modernize:
       disable:
         - omitzero
+        # Would rewrite ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: ..}} to
+        # ConfigMap{Name: ..} (Go 1.27): non-idiomatic for k8s objects.
+        - embedlit
   exclusions:
     generated: lax
     rules:

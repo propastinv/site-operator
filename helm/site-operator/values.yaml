@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/propastinv/site-operator/operator
-  tag: "0.1.4"
+  tag: "0.1.5"
   pullPolicy: IfNotPresent
   # Optional: names of existing imagePullSecrets, e.g. for a private registry.
   # pullSecrets:
@@ -12,6 +12,14 @@ image:
 service:
   type: ClusterIP
   port: 80
+
+# Real, scheduled wp-cron for every Site, instead of relying on WordPress's
+# own page-load-triggered pseudo-cron (unreliable on low-traffic sites).
+# wp-config.php always sets DISABLE_WP_CRON, so if this is turned off, no
+# cron events run for any site at all.
+wpCron:
+  enabled: true
+  schedule: "*/5 * * * *"
 
 # Cluster-wide defaults applied to any Site that doesn't set the equivalent
 # field itself — a Site's own spec always wins over these.

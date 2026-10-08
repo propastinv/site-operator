@@ -8,6 +8,15 @@ import (
 	sitev1alpha1 "github.com/propastinv/site-operator/api/v1alpha1"
 )
 
+const (
+	// dbUserEnv is the env var php-fpm reads the database user from.
+	dbUserEnv = "DB_USER"
+	// dbPasswordKey is both the env var php-fpm reads the database password
+	// from and the key a provisioned password is stored under in the
+	// <site>-site-secret Secret.
+	dbPasswordKey = "DB_PASSWORD"
+)
+
 func buildWPEnvs(site sitev1alpha1.Site) []corev1.EnvVar {
 	scheme := "http"
 	if site.Spec.Ingress != nil && site.Spec.Ingress.TLS != nil {
@@ -127,10 +136,10 @@ func buildDatabaseEnvs(site sitev1alpha1.Site) []corev1.EnvVar {
 	if provisionEnabled(site) {
 		return append(envs,
 			corev1.EnvVar{
-				Name:  "DB_USER",
+				Name:  dbUserEnv,
 				Value: provisionedUsername(site),
 			},
-			secretEnv(site, "DB_PASSWORD"),
+			secretEnv(site, dbPasswordKey),
 		)
 	}
 
@@ -140,7 +149,7 @@ func buildDatabaseEnvs(site sitev1alpha1.Site) []corev1.EnvVar {
 	// User
 	if site.Spec.Database.UserSecret != nil {
 		envs = append(envs, corev1.EnvVar{
-			Name: "DB_USER",
+			Name: dbUserEnv,
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -152,7 +161,7 @@ func buildDatabaseEnvs(site sitev1alpha1.Site) []corev1.EnvVar {
 		})
 	} else if site.Spec.Database.User != nil {
 		envs = append(envs, corev1.EnvVar{
-			Name:  "DB_USER",
+			Name:  dbUserEnv,
 			Value: *site.Spec.Database.User,
 		})
 	}
@@ -160,7 +169,7 @@ func buildDatabaseEnvs(site sitev1alpha1.Site) []corev1.EnvVar {
 	// Password
 	if site.Spec.Database.PasswordSecret != nil {
 		envs = append(envs, corev1.EnvVar{
-			Name: "DB_PASSWORD",
+			Name: dbPasswordKey,
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -172,7 +181,7 @@ func buildDatabaseEnvs(site sitev1alpha1.Site) []corev1.EnvVar {
 		})
 	} else if site.Spec.Database.Password != nil {
 		envs = append(envs, corev1.EnvVar{
-			Name:  "DB_PASSWORD",
+			Name:  dbPasswordKey,
 			Value: *site.Spec.Database.Password,
 		})
 	}
@@ -182,11 +191,11 @@ func buildDatabaseEnvs(site sitev1alpha1.Site) []corev1.EnvVar {
 }
 
 func int32Ptr(i int32) *int32 {
-	return &i
+	return new(i)
 }
 
 func int64Ptr(i int64) *int64 {
-	return &i
+	return new(i)
 }
 
 func secretEnv(site sitev1alpha1.Site, name string) corev1.EnvVar {

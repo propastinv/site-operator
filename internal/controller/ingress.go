@@ -117,5 +117,5 @@ func reconcileIngress(
 }
 
 func ptrPathType(p networkingv1.PathType) *networkingv1.PathType {
-	return &p
+	return new(p)
 }

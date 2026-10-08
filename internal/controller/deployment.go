@@ -23,6 +23,35 @@ import (
 // prefix makes it sort after the image's own conf.d/*.ini files, so ours win.
 const phpIniFileName = "zz-site-operator.ini"
 
+const (
+	// siteDataVolume is the name of the volume holding the site's files, and
+	// siteRoot is where it is mounted in every container.
+	siteDataVolume = "site-data"
+	siteRoot       = "/var/www/html"
+)
+
+// Images used when a Site does not set spec.php.image / spec.nginx.image.
+// wp-init and php-fpm share the PHP image: wp-init copies WordPress from
+// /usr/src/wordpress, which only exists in the official wordpress image.
+const (
+	defaultPHPImage   = "wordpress:php8.5-fpm"
+	defaultNginxImage = "nginx:1.30-alpine"
+)
+
+func phpImage(site sitev1alpha1.Site) string {
+	if site.Spec.Php != nil && site.Spec.Php.Image != "" {
+		return site.Spec.Php.Image
+	}
+	return defaultPHPImage
+}
+
+func nginxImage(site sitev1alpha1.Site) string {
+	if site.Spec.Nginx != nil && site.Spec.Nginx.Image != "" {
+		return site.Spec.Nginx.Image
+	}
+	return defaultNginxImage
+}
+
 func reconcileDeployment(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner metav1.Object, site sitev1alpha1.Site, labels map[string]string, envs []corev1.EnvVar) error {
 	nginxContent := buildNginxConfigContent(site)
 	phpIniContent := buildPHPIniContent(site)
@@ -200,12 +229,12 @@ func buildDeploymentSpec(site sitev1alpha1.Site, labels map[string]string, envs 
 					},
 				},
 				InitContainers: []corev1.Container{
-					buildWPInitContainer(),
+					buildWPInitContainer(site),
 				},
 				Containers: func() []corev1.Container {
 					containers := []corev1.Container{
-						buildPHPFPMContainer(envs),
-						buildNginxContainer(),
+						buildPHPFPMContainer(site, envs),
+						buildNginxContainer(site),
 					}
 					if site.Spec.FileBrowser != nil && site.Spec.FileBrowser.Enabled {
 						containers = append(containers, buildFileBrowserContainer(site))
@@ -227,18 +256,13 @@ func deploymentStrategyType(site sitev1alpha1.Site) appsv1.DeploymentStrategyTyp
 	return appsv1.RollingUpdateDeploymentStrategyType
 }
 
-func buildWPInitContainer() corev1.Container {
+func buildWPInitContainer(site sitev1alpha1.Site) corev1.Container {
 	return corev1.Container{
 		Name:    "wp-init",
-		Image:   "wordpress:php8.5-fpm",
+		Image:   phpImage(site),
 		Command: []string{"sh", "-c"},
 		Args: []string{`
 set -e
-
-if [ ! -f /var/www/html/index.php ]; then
-  echo "Initializing WordPress files..."
-  cp -r /usr/src/wordpress/* /var/www/html/
-fi
 
 if [ ! -f /var/www/html/wp ]; then
   echo "Downloading wp-cli..."
@@ -247,18 +271,47 @@ if [ ! -f /var/www/html/wp ]; then
   chmod +x /var/www/html/wp
 fi
 
-chown -R www-data:www-data /var/www/html
+# Only seeds an empty volume; a site that has already started is never touched.
+if [ ! -f /var/www/html/index.php ]; then
+  echo "Initializing WordPress files (version: $WP_VERSION)..."
+  if [ "$WP_VERSION" = "bundled" ]; then
+    cp -r /usr/src/wordpress/* /var/www/html/
+  else
+    # memory_limit: wp-cli's archive extraction needs more than the 128M CLI default.
+    # No fallback on purpose: if the download fails the pod fails to start (the
+    # kubelet retries the init container) instead of silently running whatever
+    # older WordPress the node's cached image happens to bundle.
+    php -d memory_limit=512M /var/www/html/wp core download --path=/var/www/html --version="$WP_VERSION" --allow-root
+  fi
+fi
+
+# Numeric on purpose: php-fpm and filebrowser run as 33:33 (see their
+# securityContext), but "www-data" is uid 33 only on Debian-based images (it is
+# 82 on Alpine ones), so chowning by name breaks spec.php.image with *-alpine.
+chown -R 33:33 /var/www/html
 `},
+		Env: []corev1.EnvVar{
+			{Name: "WP_VERSION", Value: wpVersion(site)},
+		},
 		VolumeMounts: []corev1.VolumeMount{
-			{Name: "site-data", MountPath: "/var/www/html"},
+			{Name: siteDataVolume, MountPath: siteRoot},
 		},
 	}
 }
 
-func buildPHPFPMContainer(envs []corev1.EnvVar) corev1.Container {
+// wpVersion is the WordPress core version a new site is seeded with; see
+// WordpressSpec.Version.
+func wpVersion(site sitev1alpha1.Site) string {
+	if site.Spec.Wordpress != nil && site.Spec.Wordpress.Version != "" {
+		return site.Spec.Wordpress.Version
+	}
+	return "latest"
+}
+
+func buildPHPFPMContainer(site sitev1alpha1.Site, envs []corev1.EnvVar) corev1.Container {
 	return corev1.Container{
 		Name:    "php-fpm",
-		Image:   "wordpress:php8.5-fpm",
+		Image:   phpImage(site),
 		Command: []string{"sh", "-c"},
 		Args: []string{`
 set -e
@@ -282,6 +335,13 @@ if (getenv('WP_HOME') && str_starts_with(getenv('WP_HOME'), 'https://')) {
         define('FORCE_SSL_ADMIN', true);
     }
 }
+
+// The operator's own wp-cron CronJob calls wp-cron.php directly on a
+// schedule (see cmd/wpcron.go), so WordPress's own page-load-triggered
+// pseudo-cron (unreliable on low-traffic sites, wasted work on high-traffic
+// ones) is disabled here. This does not disable cron events themselves, only
+// the implicit trigger on every page load.
+define('DISABLE_WP_CRON', true);
 
 define('AUTH_KEY', getenv('AUTH_KEY'));
 define('SECURE_AUTH_KEY', getenv('SECURE_AUTH_KEY'));
@@ -364,7 +424,7 @@ exec php-fpm
 		},
 
 		VolumeMounts: []corev1.VolumeMount{
-			{Name: "site-data", MountPath: "/var/www/html"},
+			{Name: siteDataVolume, MountPath: siteRoot},
 			{
 				Name:      "php-config",
 				MountPath: "/usr/local/etc/php/conf.d/" + phpIniFileName,
@@ -374,15 +434,15 @@ exec php-fpm
 	}
 }
 
-func buildNginxContainer() corev1.Container {
+func buildNginxContainer(site sitev1alpha1.Site) corev1.Container {
 	return corev1.Container{
 		Name:  "nginx",
-		Image: "nginx:1.25-alpine",
+		Image: nginxImage(site),
 		Ports: []corev1.ContainerPort{
 			{ContainerPort: 80},
 		},
 		VolumeMounts: []corev1.VolumeMount{
-			{Name: "site-data", MountPath: "/var/www/html"},
+			{Name: siteDataVolume, MountPath: siteRoot},
 			{Name: "nginx-config", MountPath: "/etc/nginx/conf.d/default.conf", SubPath: "default.conf"},
 		},
 	}
@@ -408,7 +468,7 @@ exec filebrowser
 `},
 		Env: []corev1.EnvVar{
 			{Name: "FB_PORT", Value: "8080"},
-			{Name: "FB_ROOT", Value: "/var/www/html"},
+			{Name: "FB_ROOT", Value: siteRoot},
 			{Name: "FB_DATABASE", Value: "/tmp/filebrowser.db"},
 			{Name: "FB_BASE_URL", Value: "/filebrowser"},
 			{Name: "FB_ADDRESS", Value: "0.0.0.0"},
@@ -423,7 +483,7 @@ exec filebrowser
 			RunAsGroup: int64Ptr(33),
 		},
 		VolumeMounts: []corev1.VolumeMount{
-			{Name: "site-data", MountPath: "/var/www/html"},
+			{Name: siteDataVolume, MountPath: siteRoot},
 			{Name: "fb-config", MountPath: "/config"},
 		},
 	}
@@ -433,7 +493,7 @@ func buildSiteDataVolume(site sitev1alpha1.Site) corev1.Volume {
 
 	if site.Spec.Persistence == nil || !site.Spec.Persistence.Enabled {
 		return corev1.Volume{
-			Name: "site-data",
+			Name: siteDataVolume,
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
@@ -447,7 +507,7 @@ func buildSiteDataVolume(site sitev1alpha1.Site) corev1.Volume {
 	}
 
 	return corev1.Volume{
-		Name: "site-data",
+		Name: siteDataVolume,
 		VolumeSource: corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,

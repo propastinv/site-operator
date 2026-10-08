@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: wp-cron
+  labels:
+    app.kubernetes.io/name: site-operator
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 300
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: controller-manager
+          restartPolicy: Never
+          containers:
+            - name: wp-cron
+              image: controller:latest
+              args:
+                - --run-wp-cron

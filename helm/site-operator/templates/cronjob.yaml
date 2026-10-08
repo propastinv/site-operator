@@ -1,0 +1,29 @@
+{{- if .Values.wpCron.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: site-operator-wp-cron
+spec:
+  schedule: {{ .Values.wpCron.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 300
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: site-operator
+          restartPolicy: Never
+          containers:
+            - name: wp-cron
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args:
+                - --run-wp-cron
+          {{- with .Values.image.pullSecrets }}
+          imagePullSecrets:
+            {{- range . }}
+            - name: {{ . }}
+            {{- end }}
+          {{- end }}
+{{- end }}

@@ -69,6 +69,12 @@ type SiteSpec struct {
 // enough: PHP enforces its own, independent post_max_size (default 8M) and
 // upload_max_filesize (default 2M) limits.
 type PhpSpec struct {
+	// Image is the php-fpm image, also used for the wp-init container that
+	// seeds /var/www/html. Defaults to the operator's built-in WordPress
+	// php-fpm image; set it to pin a version or to use a custom build (it
+	// must keep WordPress's layout: /usr/src/wordpress and php-fpm).
+	// +optional
+	Image string `json:"image,omitempty"`
 	// Config is written verbatim to a php.ini file loaded after all of the
 	// image's defaults (so it can override them), e.g.:
 	//   post_max_size = 64M
@@ -81,6 +87,10 @@ type PhpSpec struct {
 // e.g. to raise client_max_body_size for large WordPress media/plugin
 // uploads (nginx defaults to 1m, which is why uploads fail with 413).
 type NginxSpec struct {
+	// Image is the nginx image. Defaults to the operator's built-in nginx
+	// alpine image; set it to pin a version or use a custom build.
+	// +optional
+	Image string `json:"image,omitempty"`
 	// Config is injected verbatim into the nginx server{} block, after
 	// `index` and before the `location /` block. Directives valid in nginx's
 	// server context only (e.g. client_max_body_size, proxy/fastcgi timeouts).
@@ -135,6 +145,18 @@ type FileBrowserSpec struct {
 type WordpressSpec struct {
 	Debug   *DebugSpec   `json:"debug,omitempty"`
 	Install *InstallSpec `json:"install,omitempty"`
+	// Version is the WordPress core version a new site is seeded with: an
+	// exact version such as "7.1.2", "latest" (the default), or "bundled".
+	// It is only used while the site's volume has no WordPress yet; the
+	// operator never updates the core of a site that has already started.
+	// "latest" and exact versions are downloaded from wordpress.org at first
+	// start, so a new site no longer gets whichever (possibly stale) release
+	// the node's cached php image happens to bundle. If the download fails the
+	// pod fails to start (and is retried) rather than silently running another
+	// version. "bundled" restores the old behaviour: copy the WordPress that
+	// ships inside spec.php.image (works without access to wordpress.org).
+	// +optional
+	Version string `json:"version,omitempty"`
 }
 
 type InstallSpec struct {

@@ -71,8 +71,13 @@ func main() {
 	var tlsOpts []func(*tls.Config)
 	var defaultMariaDBName, defaultMariaDBNamespace string
 	var defaultStorageClassName string
+	var runWPCron bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
+	flag.BoolVar(&runWPCron, "run-wp-cron", false,
+		"Instead of starting the manager, trigger wp-cron.php on every Site once and exit. "+
+			"Used by the site-operator-wp-cron CronJob so sites don't depend on WordPress's own "+
+			"page-load-triggered pseudo-cron (which is unreliable on low-traffic sites).")
 	flag.StringVar(&defaultMariaDBName, "default-mariadb-name", "",
 		"Name of a mariadb-operator MariaDB cluster used for spec.provision.database on Sites "+
 			"that don't set their own mariadbRef. Leave empty to require every Site to set its own.")
@@ -103,6 +108,14 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	if runWPCron {
+		if err := runWPCronOnce(ctrl.SetupSignalHandler()); err != nil {
+			setupLog.Error(err, "wp-cron run failed")
+			os.Exit(1)
+		}
+		return
+	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
