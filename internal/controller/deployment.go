@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -124,12 +125,24 @@ func buildNginxConfigContent(site sitev1alpha1.Site) string {
 	fastcgiXFP := ""
 	if tlsEnabled {
 		fastcgiHTTPS = "fastcgi_param HTTPS on;"
-		fastcgiXFP = "fastcgi_param HTTP_X_FORWARDED_PROTO $scheme;"
+		// Literal, not $scheme: TLS ends at the ingress, so nginx's own $scheme is
+		// always "http" and would tell PHP the opposite of what HTTPS on says.
+		fastcgiXFP = "fastcgi_param HTTP_X_FORWARDED_PROTO https;"
 	}
 
 	extraConfig := ""
 	if site.Spec.Nginx != nil {
 		extraConfig = site.Spec.Nginx.Config
+	}
+
+	// TLS terminates at the ingress, so nginx only ever sees plain http. Its own
+	// redirects (e.g. /dir -> /dir/ for a real directory under the web root) would
+	// otherwise carry an absolute http:// Location and downgrade https visitors.
+	// Relative Locations keep whatever scheme the client used. Skipped when the
+	// site sets the directive itself, since nginx rejects a duplicate.
+	absoluteRedirect := "absolute_redirect off;"
+	if strings.Contains(extraConfig, "absolute_redirect") {
+		absoluteRedirect = ""
 	}
 
 	return fmt.Sprintf(`
@@ -139,6 +152,8 @@ server {
 
   root /var/www/html;
   index index.php index.html;
+
+  %s
 
   %s
 
@@ -155,7 +170,7 @@ server {
     %s
   }
 }
-`, extraConfig, fastcgiHTTPS, fastcgiXFP)
+`, absoluteRedirect, extraConfig, fastcgiHTTPS, fastcgiXFP)
 }
 
 // buildPHPIniContent renders the php.ini overrides from spec.php.config.
