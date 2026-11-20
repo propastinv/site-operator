@@ -38,3 +38,10 @@ defaults:
   # StorageClass. Leave empty to fall back to the cluster's default
   # StorageClass instead.
   storageClassName: ""
+  # Images for Sites that don't set spec.php.image / spec.nginx.image. Pin the
+  # full x.y.z tag (the leading number is the WordPress version) so security
+  # patches roll out only when you bump it here, e.g. via Renovate/Dependabot.
+  # php-fpm is also used for wp-init, so it must be a wordpress:*-fpm image.
+  # Changing it restarts every Site that relies on the default.
+  phpImage: "wordpress:7.1.5-php8.5-fpm"
+  nginxImage: "nginx:1.30.7-alpine"

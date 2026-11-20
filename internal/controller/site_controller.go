@@ -44,6 +44,12 @@ type SiteReconciler struct {
 	// --default-storage-class-name flag, exposed as persistence.storageClassName
 	// in the site-operator Helm chart.
 	DefaultStorageClassName string
+	// DefaultPHPImage / DefaultNginxImage, when set, replace the built-in
+	// images for any Site that doesn't set spec.php.image / spec.nginx.image.
+	// Configured via --default-php-image / --default-nginx-image, exposed as
+	// defaults.phpImage / defaults.nginxImage in the site-operator Helm chart.
+	DefaultPHPImage   string
+	DefaultNginxImage string
 }
 
 // RBAC
@@ -98,7 +104,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 	)
 
 	// Deployment
-	if err := reconcileDeployment(ctx, r.Client, r.Scheme, &site, site, labels, envs); err != nil {
+	if err := reconcileDeployment(ctx, r.Client, r.Scheme, &site, site, labels, envs, defaultImages{PHP: r.DefaultPHPImage, Nginx: r.DefaultNginxImage}); err != nil {
 		reconcileErr = err
 		return ctrl.Result{}, reconcileErr
 	}

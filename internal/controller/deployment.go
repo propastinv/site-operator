@@ -31,29 +31,43 @@ const (
 	siteRoot       = "/var/www/html"
 )
 
-// Images used when a Site does not set spec.php.image / spec.nginx.image.
+// Built-in images, used when a Site does not set spec.php.image /
+// spec.nginx.image and the operator was not given --default-php-image /
+// --default-nginx-image (Helm: defaults.phpImage / defaults.nginxImage).
 // wp-init and php-fpm share the PHP image: wp-init copies WordPress from
 // /usr/src/wordpress, which only exists in the official wordpress image.
 const (
-	defaultPHPImage   = "wordpress:php8.5-fpm"
-	defaultNginxImage = "nginx:1.30-alpine"
+	builtinPHPImage   = "wordpress:php8.5-fpm"
+	builtinNginxImage = "nginx:1.30-alpine"
 )
 
-func phpImage(site sitev1alpha1.Site) string {
+// defaultImages are the cluster-wide fallback images (empty = built-in).
+type defaultImages struct {
+	PHP   string
+	Nginx string
+}
+
+func phpImage(site sitev1alpha1.Site, d defaultImages) string {
 	if site.Spec.Php != nil && site.Spec.Php.Image != "" {
 		return site.Spec.Php.Image
 	}
-	return defaultPHPImage
+	if d.PHP != "" {
+		return d.PHP
+	}
+	return builtinPHPImage
 }
 
-func nginxImage(site sitev1alpha1.Site) string {
+func nginxImage(site sitev1alpha1.Site, d defaultImages) string {
 	if site.Spec.Nginx != nil && site.Spec.Nginx.Image != "" {
 		return site.Spec.Nginx.Image
 	}
-	return defaultNginxImage
+	if d.Nginx != "" {
+		return d.Nginx
+	}
+	return builtinNginxImage
 }
 
-func reconcileDeployment(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner metav1.Object, site sitev1alpha1.Site, labels map[string]string, envs []corev1.EnvVar) error {
+func reconcileDeployment(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner metav1.Object, site sitev1alpha1.Site, labels map[string]string, envs []corev1.EnvVar, images defaultImages) error {
 	nginxContent := buildNginxConfigContent(site)
 	phpIniContent := buildPHPIniContent(site)
 
@@ -109,7 +123,7 @@ func reconcileDeployment(ctx context.Context, c client.Client, scheme *runtime.S
 
 		_, err := controllerutil.CreateOrUpdate(ctx, c, deploy, func() error {
 			deploy.Labels = labels
-			deploy.Spec = buildDeploymentSpec(site, labels, envs, configHash)
+			deploy.Spec = buildDeploymentSpec(site, labels, envs, configHash, images)
 			return controllerutil.SetControllerReference(owner, deploy, scheme)
 		})
 		return err
@@ -196,7 +210,7 @@ func configChecksum(contents ...string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func buildDeploymentSpec(site sitev1alpha1.Site, labels map[string]string, envs []corev1.EnvVar, configHash string) appsv1.DeploymentSpec {
+func buildDeploymentSpec(site sitev1alpha1.Site, labels map[string]string, envs []corev1.EnvVar, configHash string, images defaultImages) appsv1.DeploymentSpec {
 	return appsv1.DeploymentSpec{
 		Replicas: int32Ptr(1),
 		Strategy: appsv1.DeploymentStrategy{
@@ -244,12 +258,12 @@ func buildDeploymentSpec(site sitev1alpha1.Site, labels map[string]string, envs 
 					},
 				},
 				InitContainers: []corev1.Container{
-					buildWPInitContainer(site),
+					buildWPInitContainer(site, images),
 				},
 				Containers: func() []corev1.Container {
 					containers := []corev1.Container{
-						buildPHPFPMContainer(site, envs),
-						buildNginxContainer(site),
+						buildPHPFPMContainer(site, envs, images),
+						buildNginxContainer(site, images),
 					}
 					if site.Spec.FileBrowser != nil && site.Spec.FileBrowser.Enabled {
 						containers = append(containers, buildFileBrowserContainer(site))
@@ -271,10 +285,10 @@ func deploymentStrategyType(site sitev1alpha1.Site) appsv1.DeploymentStrategyTyp
 	return appsv1.RollingUpdateDeploymentStrategyType
 }
 
-func buildWPInitContainer(site sitev1alpha1.Site) corev1.Container {
+func buildWPInitContainer(site sitev1alpha1.Site, images defaultImages) corev1.Container {
 	return corev1.Container{
 		Name:    "wp-init",
-		Image:   phpImage(site),
+		Image:   phpImage(site, images),
 		Command: []string{"sh", "-c"},
 		Args: []string{`
 set -e
@@ -323,10 +337,10 @@ func wpVersion(site sitev1alpha1.Site) string {
 	return "latest"
 }
 
-func buildPHPFPMContainer(site sitev1alpha1.Site, envs []corev1.EnvVar) corev1.Container {
+func buildPHPFPMContainer(site sitev1alpha1.Site, envs []corev1.EnvVar, images defaultImages) corev1.Container {
 	return corev1.Container{
 		Name:    "php-fpm",
-		Image:   phpImage(site),
+		Image:   phpImage(site, images),
 		Command: []string{"sh", "-c"},
 		Args: []string{`
 set -e
@@ -449,10 +463,10 @@ exec php-fpm
 	}
 }
 
-func buildNginxContainer(site sitev1alpha1.Site) corev1.Container {
+func buildNginxContainer(site sitev1alpha1.Site, images defaultImages) corev1.Container {
 	return corev1.Container{
 		Name:  "nginx",
-		Image: nginxImage(site),
+		Image: nginxImage(site, images),
 		Ports: []corev1.ContainerPort{
 			{ContainerPort: 80},
 		},

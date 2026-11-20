@@ -24,7 +24,7 @@ func TestWPVersion(t *testing.T) {
 				t.Errorf("wpVersion = %q, want %q", got, tc.want)
 			}
 			var env string
-			for _, e := range buildWPInitContainer(site).Env {
+			for _, e := range buildWPInitContainer(site, defaultImages{}).Env {
 				if e.Name == "WP_VERSION" {
 					env = e.Value
 				}

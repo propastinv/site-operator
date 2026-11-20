@@ -17,7 +17,7 @@ spec:
         - name: site-operator
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if or .Values.defaults.mariadbRef.name .Values.defaults.storageClassName }}
+          {{- if or .Values.defaults.mariadbRef.name .Values.defaults.storageClassName .Values.defaults.phpImage .Values.defaults.nginxImage }}
           args:
             {{- if .Values.defaults.mariadbRef.name }}
             - --default-mariadb-name={{ .Values.defaults.mariadbRef.name }}
@@ -25,6 +25,12 @@ spec:
             {{- end }}
             {{- if .Values.defaults.storageClassName }}
             - --default-storage-class-name={{ .Values.defaults.storageClassName }}
+            {{- end }}
+            {{- if .Values.defaults.phpImage }}
+            - --default-php-image={{ .Values.defaults.phpImage }}
+            {{- end }}
+            {{- if .Values.defaults.nginxImage }}
+            - --default-nginx-image={{ .Values.defaults.nginxImage }}
             {{- end }}
           {{- end }}
       {{- with .Values.image.pullSecrets }}
